@@ -1,20 +1,40 @@
-# Ignorar archivos de datos (por seguridad y privacidad)
+# --- Archivos de Datos (Privacidad) ---
 *.csv
 *.xls
 *.xlsx
 *.txt
+*.log
 
-# Ignorar carpetas de entorno virtual y Python portable
+# --- Python Portable y Entornos Virtuales ---
+# Carpetas comunes de Python
 WPy64*/
+python*/
 venv/
 env/
+.venv/
+Lib/
+Libs/
+Scripts/
+Include/
+share/
+tcl/
+
+# --- Archivos Binarios y del Sistema Python ---
+*.exe
+*.dll
+*.pyd
+*.lib
+python*.zip
+pyvenv.cfg
+._pth
+
+# --- Archivos compilados y caché ---
 __pycache__/
 *.pyc
+*.pyo
 
-# Ignorar configuraciones locales de IDE
+# --- IDEs y Sistema Operativo ---
 .vscode/
 .idea/
-
-# Ignorar archivos temporales del sistema
 .DS_Store
 Thumbs.db
