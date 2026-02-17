@@ -7,6 +7,7 @@
 
 # --- Python Portable y Entornos Virtuales ---
 # Carpetas comunes de Python
+Sistema_Python/
 WPy64*/
 python*/
 venv/
