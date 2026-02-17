@@ -1,0 +1,20 @@
+# Ignorar archivos de datos (por seguridad y privacidad)
+*.csv
+*.xls
+*.xlsx
+*.txt
+
+# Ignorar carpetas de entorno virtual y Python portable
+WPy64*/
+venv/
+env/
+__pycache__/
+*.pyc
+
+# Ignorar configuraciones locales de IDE
+.vscode/
+.idea/
+
+# Ignorar archivos temporales del sistema
+.DS_Store
+Thumbs.db
