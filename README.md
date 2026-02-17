@@ -1,5 +1,5 @@
 # 📡 Visualizador de Rendimiento de Antena Telepase
-![Demo de la aplicación](image.png)
+![Demo de la aplicación](demo.png)
 
 Este proyecto es una herramienta de análisis de datos desarrollada en Python para monitorear y visualizar el rendimiento de las antenas de lectura de Telepase en estaciones de peaje.
 
