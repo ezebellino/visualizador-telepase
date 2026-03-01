@@ -1,28 +1,33 @@
-# 📡 Visualizador de Rendimiento de Antena Telepase
+# 📡 Sistema de Monitoreo y Análisis de Antenas Telepase (v1.1)
+
 ![Demo de la aplicación](demo.png)
 
-Este proyecto es una herramienta de análisis de datos desarrollada en Python para monitorear y visualizar el rendimiento de las antenas de lectura de Telepase en estaciones de peaje.
+Este proyecto es una herramienta de análisis de datos desarrollada en Python para monitorear y visualizar el rendimiento de las antenas de lectura de Telepase en estaciones de peaje. 
 
-La aplicación procesa reportes de eventos (archivos `.xls` o `.csv`), identifica vehículos únicos mediante el número de tránsito y calcula la efectividad de lectura automática frente a las intervenciones manuales.
+La aplicación procesa reportes de eventos, identifica vehículos únicos y calcula la efectividad de lectura automática, permitiendo ahora un filtrado granular por vías y extracción avanzada de datos.
 
-## 🚀 Funcionalidades
+## ✨ Novedades en la última versión
+* **Extracción Inteligente (Regex):** El sistema ahora lee las observaciones y extrae automáticamente la **Patente** y el **Número de Dispositivo TAG** de cada vehículo.
+* **Filtros Dinámicos:** Nuevo panel lateral para filtrar la información por **Vías** específicas (ej: Vías Ascendentes vs. Descendentes).
+* **Mejoras de UI/UX:** Gráficos actualizados con colores semánticos (Verde = Éxito, Rojo = Fallo, Amarillo = Violación/Exento) para una lectura visual más rápida y tablas responsivas.
+* **Datos Temporales Precisos:** Detección y conversión nativa de los horarios de eventos directamente desde los metadatos del archivo.
 
-* **Detección Inteligente de Vehículos:** Agrupa eventos por número de tránsito único para evitar duplicados.
-* **Lógica de Negocio:**
-    * Detecta lecturas exitosas ("TAG Pospago...").
-    * Identifica fallos de lectura que requirieron intervención manual ("Patente Ingresada Manualmente").
-    * Clasifica violaciones y vehículos exentos.
-* **Compatibilidad Universal:** Soporta archivos antiguos de Excel (`.xls` binarios) y CSVs modernos, detectando automáticamente la codificación (UTF-8, Latin-1).
-* **Visualización Interactiva:** Gráficos de torta y tablas filtrables generados con **Streamlit** y **Altair**.
+## 🚀 Funcionalidades Principales
+
+* **Detección de Vehículos:** Agrupa eventos por número de tránsito único para evitar duplicados en el conteo.
+* **Lógica de Clasificación:**
+    * **Leído Correctamente:** Vehículos con eventos de "TAG" sin intervención manual.
+    * **Fallo (Manual):** Identifica intervenciones manuales ("Patente Ingresada Manualmente") previas al cierre del tránsito.
+    * **Otros:** Clasificación de violaciones de vía y vehículos exentos.
+* **Compatibilidad Universal:** Soporta archivos antiguos de Excel (`.xls` binarios) y CSVs modernos, detectando automáticamente la codificación.
 * **Modo Portable:** Diseñado para ejecutarse desde una memoria USB sin instalación previa en el equipo host.
 
 ## 🛠️ Tecnologías Utilizadas
-
-* **Python 3.11**
-* **Pandas:** Manipulación y limpieza de datos.
-* **Streamlit:** Interfaz de usuario web.
-* **Altair:** Visualización de datos.
-* **OpenPyXL / XLRD:** Soporte para archivos Excel.
+* **Python 3.11** (Lógica central y Expresiones Regulares `re`)
+* **Pandas** (Limpieza y manipulación de DataFrames)
+* **Streamlit** (Interfaz de usuario web)
+* **Altair** (Visualización de datos semántica)
+* **OpenPyXL / XLRD** (Soporte multiplataforma para Excel)
 
 ## 📋 Requisitos de Instalación (Para Desarrolladores)
 
