@@ -1,6 +1,6 @@
 # --- Archivos de Datos (Privacidad) ---
 *.csv
-*.xls
+# *.xls
 *.xlsx
 *.txt
 *.log
