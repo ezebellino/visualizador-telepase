@@ -105,3 +105,15 @@ def test_process_events_inherit_transito():
     assert len(df_output) == 2
     assert (df_output['Tránsito'] == 1).any()
     assert (df_output['Tránsito'] == 2).any()
+
+
+def test_process_events_infer_sentido_from_via():
+    rows = [
+        {'Hora': '08:00', 'Vía': '11', 'Tránsito': 1, 'Descripción': 'TAG OK', 'Observación': 'Patente: ABC123 Tag: TAG001', 'Sentido': 'N/A'},
+        {'Hora': '08:02', 'Vía': '51', 'Tránsito': 2, 'Descripción': 'TAG OK', 'Observación': 'Patente: XYZ999', 'Sentido': ''},
+    ]
+    df_input = pd.DataFrame(rows)
+
+    df_output = process_events(df_input)
+    assert df_output.loc[df_output['Tránsito'] == 1, 'Sentido'].iloc[0] == 'ASCENDENTE'
+    assert df_output.loc[df_output['Tránsito'] == 2, 'Sentido'].iloc[0] == 'DESCENDENTE'

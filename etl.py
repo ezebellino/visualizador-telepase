@@ -4,6 +4,28 @@ from io import StringIO
 
 import pandas as pd
 
+ASCENDENTES = {7, 8, 9, 10, 11}
+DESCENDENTES = {51, 52, 53, 54, 55}
+
+
+def infer_sentido_from_via(via_value):
+    if pd.isna(via_value):
+        return 'N/A'
+    via_str = str(via_value).strip()
+
+    # Extraer número
+    import re
+    matched = re.search(r'(\d+)', via_str)
+    if not matched:
+        return 'N/A'
+
+    via_num = int(matched.group(1))
+    if via_num in ASCENDENTES:
+        return 'ASCENDENTE'
+    if via_num in DESCENDENTES:
+        return 'DESCENDENTE'
+    return 'N/A'
+
 REQUIRED_COLUMNS = ['Hora', 'Vía', 'Tránsito', 'Descripción']
 COLUMN_ALIASES = {
     'hora': 'Hora',
@@ -43,8 +65,11 @@ def find_header_and_data(df_raw: pd.DataFrame) -> pd.DataFrame | None:
     if header_idx is None:
         return None
 
-    df_raw.columns = df_raw.iloc[header_idx]
-    data = df_raw[header_idx + 1 :].reset_index(drop=True)
+    # Convertir índice detectado en posición entera para evitar warnings de tipos en Pylance.
+    header_pos = df_raw.index.get_loc(header_idx)
+
+    df_raw.columns = df_raw.loc[header_idx]
+    data = df_raw.iloc[header_pos + 1 :].reset_index(drop=True)
     data = normalize_columns(data)
     return data
 
@@ -129,6 +154,14 @@ def process_events(df: pd.DataFrame) -> pd.DataFrame:
         df['Sentido'] = df['Sentido'].fillna('N/A')
 
     df['Hora_raw'] = df['Hora']
+
+    # inferir sentido desde vía cuando no esté definido o sea N/A
+    df['Via_for_sentido'] = df['Vía'].fillna('').astype(str)
+    df['Sentido'] = df.apply(
+        lambda row: row['Sentido']
+        if row['Sentido'] not in ['', 'N/A', 'na', 'None', None] else infer_sentido_from_via(row['Via_for_sentido']),
+        axis=1,
+    )
 
     df['Hora'] = pd.to_datetime(df['Hora'], errors='coerce')
     df['Hora'] = df['Hora'].dt.strftime('%H:%M:%S')
