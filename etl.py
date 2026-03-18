@@ -135,6 +135,7 @@ def process_events(df: pd.DataFrame) -> pd.DataFrame:
     df['Hora'] = df['Hora'].fillna(df['Hora_raw'].astype(str)).replace('NaT', 'N/A')
 
     df['Tránsito'] = pd.to_numeric(df['Tránsito'], errors='coerce')
+    df['Tránsito'] = df['Tránsito'].ffill()
     df = df[df['Tránsito'].notna()]
     df['Tránsito'] = df['Tránsito'].astype(int)
 

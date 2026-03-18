@@ -91,3 +91,17 @@ def test_load_data_detects_semicolon_csv():
     assert df is not None
     assert 'Hora' in df.columns
     assert df.iloc[0]['Vía'] == 'Norte'
+
+
+def test_process_events_inherit_transito():
+    rows = [
+        {'Hora': '08:00', 'Vía': 'Norte', 'Tránsito': 1, 'Descripción': 'TAG OK', 'Observación': 'Patente: ABC123 Tag: TAG001'},
+        {'Hora': '08:01', 'Vía': 'Norte', 'Tránsito': None, 'Descripción': 'Tarjeta leída', 'Observación': ''},
+        {'Hora': '08:02', 'Vía': 'Norte', 'Tránsito': 2, 'Descripción': 'Otra entrada', 'Observación': 'Patente: XYZ999'},
+    ]
+    df_input = pd.DataFrame(rows)
+
+    df_output = process_events(df_input)
+    assert len(df_output) == 2
+    assert (df_output['Tránsito'] == 1).any()
+    assert (df_output['Tránsito'] == 2).any()

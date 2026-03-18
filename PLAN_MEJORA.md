@@ -33,6 +33,7 @@ Entregable: repositorio con pruebas y lint listos.
   - Manual si hay evento manual previo.
   - TAG leído si hay registro TAG y no manual.
   - Otro si no hay TAG.
+  - Dirección de tránsito heredada desde fila previa si valor faltante.
 - [x] Tests: cobertura 80% + casos reales.
 
 Entregable: pipeline estable bajo datos ruidosos.
