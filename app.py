@@ -115,51 +115,30 @@ if not df_processed.empty:
         except Exception as e:
             st.warning(f"No se pudo generar Excel: {e}")
 
-            
-            # Aplicar filtro
-            df_filtrado = df_processed[df_processed['Vía'].isin(vias_seleccionadas)]
-            
-            if df_filtrado.empty:
-                st.warning("No hay datos para las Vías seleccionadas. Por favor, marca al menos una Vía en el menú izquierdo.")
-            else:
-                counts = df_filtrado['Estado'].value_counts()
-                total = len(df_filtrado)
-                reads = counts.get("Leído Correctamente (TAG)", 0)
-                manuals = counts.get("Manual (No Leído)", 0)
-                effectiveness = (reads / total * 100) if total > 0 else 0
-                
-                st.divider()
-                st.markdown(f"### 📊 Métricas para las vías: {', '.join(map(str, vias_seleccionadas))}")
-                c1, c2, c3, c4 = st.columns(4)
-                c1.metric("Total Vehículos", total)
-                c2.metric("Lecturas OK", reads)
-                c3.metric("Fallo (Manual)", manuals)
-                c4.metric("Efectividad", f"{effectiveness:.1f}%")
-                st.divider()
-                
-                col_chart, col_data = st.columns([1, 2])
-                
-                with col_chart:
-                    chart_data = pd.DataFrame({'Estado': counts.index, 'Cantidad': counts.values})
-                    
-                    # Definimos exactamente qué color va con qué estado
-                    color_scale = alt.Scale(
-                        domain=["Leído Correctamente (TAG)", "Manual (No Leído)", "Otro (Violación/Exento)"],
-                        range=["#648040", "#C0C0C0", "#FFD700"]  
-                    )
-                    
-                    base = alt.Chart(chart_data).encode(theta=alt.Theta("Cantidad", stack=True))
-                    pie = base.mark_arc(innerRadius=60).encode(
-                        color=alt.Color("Estado", scale=color_scale, legend=alt.Legend(title="Estados")),
-                        order=alt.Order("Cantidad", sort="descending"),
-                        tooltip=["Estado", "Cantidad"]
-                    )
-                    st.altair_chart(pie, theme="streamlit")
-                    
-                with col_data:
-                    # Mostrar la tabla con el nuevo orden de columnas
-                    st.dataframe(
-                        df_filtrado[['Hora', 'Vía', 'Patente', 'TAG', 'Sentido', 'Tránsito', 'Estado']], 
-                        width='stretch', 
-                        height=400
-                    )
+        # Pivot de estados por vía
+        estado_via = df_filtrado.groupby(['Vía', 'Estado']).size().reset_index(name='Cantidad')
+        pivot = estado_via.pivot(index='Vía', columns='Estado', values='Cantidad').fillna(0)
+
+        st.markdown("### 📌 Estado por Vía")
+        st.dataframe(pivot.astype(int), width='stretch', height=240)
+
+        # Heatmap
+        df_heat = estado_via.copy()
+        heatmap = alt.Chart(df_heat).mark_rect().encode(
+            x=alt.X('Estado:N', title='Estado'),
+            y=alt.Y('Vía:N', sort='-x', title='Vía'),
+            color=alt.Color('Cantidad:Q', scale=alt.Scale(scheme='yellowgreenblue'), title='Cantidad'),
+            tooltip=['Vía', 'Estado', 'Cantidad']
+        ).properties(height=320)
+
+        st.altair_chart(heatmap, use_container_width=True)
+
+        # Paginación
+        page_size = st.sidebar.selectbox('Tamaño de página', [25, 50, 100, 200], index=1)
+        num_pages = (len(df_filtrado) - 1) // page_size + 1
+        page = st.sidebar.number_input('Página', min_value=1, max_value=num_pages, value=1, step=1)
+        start = (page - 1) * page_size
+        end = start + page_size
+
+        st.markdown(f"### 🗂️ Tabla paginada (Página {page}/{num_pages})")
+        st.dataframe(df_filtrado[output_cols].iloc[start:end], width='stretch', height=350)
