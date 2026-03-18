@@ -22,18 +22,18 @@ Entregable: repositorio con pruebas y lint listos.
 ---
 
 ## Fase 2: Robustez de datos + casos de borde (2-3 días)
-- [ ] Validar esquema mínimo de columnas: `Hora`, `Vía`, `Tránsito`, `Descripción`. `Observación` opcional.
-- [ ] Mensajes de error claros en UI si esquema inválido.
-- [ ] `load_data` mejorado:
+- [x] Validar esquema mínimo de columnas: `Hora`, `Vía`, `Tránsito`, `Descripción`. `Observación` opcional.
+- [x] Mensajes de error claros en UI si esquema inválido.
+- [x] `load_data` mejorado:
   - Detectar separador con `csv.Sniffer`.
   - `on_bad_lines='warn'`.
   - Lectura segura para Excel y CSV.
-- [ ] Mejora de `find_header_and_data` con alias y excepciones.
-- [ ] `process_events` vectorizado y `groupby` para estado final.
+- [x] Mejora de `find_header_and_data` con alias y excepciones.
+- [x] `process_events` vectorizado y `groupby` para estado final.
   - Manual si hay evento manual previo.
   - TAG leído si hay registro TAG y no manual.
   - Otro si no hay TAG.
-- [ ] Tests: cobertura 80% + casos reales.
+- [x] Tests: cobertura 80% + casos reales.
 
 Entregable: pipeline estable bajo datos ruidosos.
 

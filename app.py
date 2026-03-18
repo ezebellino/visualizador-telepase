@@ -11,10 +11,12 @@ st.title("📡 Sistema de Monitoreo Telepase")
 uploaded_file = st.file_uploader("Cargar archivo", type=['csv', 'xls', 'xlsx'])
 
 if uploaded_file is not None:
-    df_clean = load_data(uploaded_file)
-    
-    if df_clean is not None:
+    try:
+        df_clean = load_data(uploaded_file)
         df_processed = process_events(df_clean)
+    except Exception as e:
+        st.error(f"Error al procesar archivo: {e}")
+        df_processed = pd.DataFrame()
         
         if not df_processed.empty:
             

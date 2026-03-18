@@ -10,7 +10,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from etl import extract_patente, extract_tag, find_header_and_data, process_events
+from etl import extract_patente, extract_tag, find_header_and_data, load_data, process_events
 
 
 def test_extract_patente_found():
@@ -59,3 +59,35 @@ def test_process_events_classification():
     assert 'Leído Correctamente (TAG)' in df_output['Estado'].values
     assert 'Manual (No Leído)' in df_output['Estado'].values
     assert 'Otro (Violación/Exento)' in df_output['Estado'].values
+
+
+def test_process_events_group_priority_manual():
+    rows = [
+        {'Hora': '08:00', 'Vía': 'Norte', 'Tránsito': 5, 'Descripción': 'TAG OK', 'Observación': 'Patente: CDE456 Tag: TAG789'},
+        {'Hora': '08:01', 'Vía': 'Norte', 'Tránsito': 5, 'Descripción': 'Tránsito con Patente Ingresada Manualmente', 'Observación': 'Patente: CDE456'},
+    ]
+    df_input = pd.DataFrame(rows)
+
+    df_output = process_events(df_input)
+    assert len(df_output) == 1
+    assert df_output.loc[0, 'Estado'] == 'Manual (No Leído)'
+
+
+def test_validate_columns_raises():
+    data = [{'Hora': '08:00', 'Tránsito': 1, 'Descripción': 'TAG OK'}]
+    df = pd.DataFrame(data)
+    with pytest.raises(ValueError, match='Faltan columnas requeridas'):
+        process_events(df)
+
+
+def test_load_data_detects_semicolon_csv():
+    from io import StringIO
+
+    csv_data = 'Hora;Vía;Tránsito;Descripción\n08:00;Norte;1;TAG OK\n'
+    dummy = StringIO(csv_data)
+    dummy.name = 'data.csv'
+
+    df = load_data(dummy)
+    assert df is not None
+    assert 'Hora' in df.columns
+    assert df.iloc[0]['Vía'] == 'Norte'
