@@ -49,6 +49,24 @@ Si deseas ejecutar el código fuente en tu entorno de desarrollo:
     streamlit run app.py
     ```
 
+## 🐳 Modo Docker
+
+1. Build:
+    ```bash
+    docker build -t visualizador-telepase .
+    ```
+2. Run:
+    ```bash
+    docker run -p 8501:8501 visualizador-telepase
+    ```
+3. Abrir en: http://localhost:8501
+
+## ✅ CI (GitHub Actions)
+
+Se agregó `/.github/workflows/python-app.yml`:
+- tests con `pytest`
+- lint con `ruff` y `black`
+
 ## 💾 Modo Portable (Para Usuarios Finales)
 
 Esta aplicación está diseñada para ser distribuida en una carpeta portable ("Portable App") que incluye un intérprete de Python embebido.
