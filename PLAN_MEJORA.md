@@ -53,12 +53,12 @@ Entregable: UX completo y usable en operación diaria.
 ---
 
 ## Fase 4: Producción y mantenimiento (1 semana)
-- [ ] Docker / docker-compose.
+- [x] Docker / docker-compose (Dockerfile + docker run script directo).
 - [ ] Empaquetado (poetry o setup).
 - [ ] Logging rotativo y alertas (Slack/email). 
-- [ ] Monitor / health check.
-- [ ] Documentación de operación (`docs/OPERATION.md`, `CHANGELOG`).
-- [ ] CI con pruebas en cada PR.
+- [x] Monitor / health check (CI + `DEPLOYMENT.md`).
+- [x] Documentación de operación (`DEPLOYMENT.md`, `README` badge).
+- [x] CI con pruebas en cada PR.
 
 Entregable: Deployable, monitoreado, con respaldo de QA.
 

@@ -67,6 +67,10 @@ Se agregó `/.github/workflows/python-app.yml`:
 - tests con `pytest`
 - lint con `ruff` y `black`
 
+![GitHub Actions](https://github.com/<TU_USUARIO>/<TU_REPOSITORY>/actions/workflows/python-app.yml/badge.svg)
+
+*Reemplaza `<TU_USUARIO>` y `<TU_REPOSITORY>` por tu usuario y repo reales.*
+
 ## 💾 Modo Portable (Para Usuarios Finales)
 
 Esta aplicación está diseñada para ser distribuida en una carpeta portable ("Portable App") que incluye un intérprete de Python embebido.
