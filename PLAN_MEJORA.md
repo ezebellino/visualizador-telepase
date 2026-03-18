@@ -41,10 +41,10 @@ Entregable: pipeline estable bajo datos ruidosos.
 ---
 
 ## Fase 3: UI & UX empresarial (2-3 días)
-- [ ] Filtros adicionales: `Sentido`, rango horario, `Patente`, `Vía`.
-- [ ] Métricas avanzadas: tasa por hora, por vía, nuevos vs repetidos.
+- [x] Filtros adicionales: `Sentido`, rango horario, `Patente`, `Vía`.
+- [x] Métricas avanzadas: tasa por hora, por vía, nuevos vs repetidos.
 - [ ] Visualizaciones: barra por hora, pivote por vía, heatmap.
-- [ ] Exportar resultados: CSV/Excel.
+- [x] Exportar resultados: CSV/Excel.
 - [ ] Manejo datasets grandes con `st.cache_data` + paginación UI.
 - [ ] Actualizar README con guía rápida y troubleshooting.
 
