@@ -1,30 +1,59 @@
 import csv
 import re
 from io import StringIO
+import datetime
 
 import pandas as pd
 
 ASCENDENTES = {7, 8, 9, 10, 11}
 DESCENDENTES = {51, 52, 53, 54, 55}
+SENTIDO_ASC = 'Asc'
+SENTIDO_DESC = 'Desc'
+SENTIDO_NA = 'N/A'
+
+
+def parse_hora(value):
+    if pd.isna(value):
+        return pd.NaT
+    s = str(value).strip()
+    if s == '':
+        return pd.NaT
+
+    formats = [
+        '%H:%M:%S',
+        '%H:%M',
+        '%Y-%m-%d %H:%M:%S',
+        '%d/%m/%Y %H:%M:%S',
+        '%Y-%m-%dT%H:%M:%S',
+    ]
+
+    for fmt in formats:
+        try:
+            return datetime.datetime.strptime(s, fmt)
+        except Exception:
+            continue
+
+    # Fallback a pandas con inferencia, sin warning por formato wrong
+    return pd.to_datetime(s, errors='coerce', infer_datetime_format=True)
 
 
 def infer_sentido_from_via(via_value):
     if pd.isna(via_value):
-        return 'N/A'
+        return SENTIDO_NA
     via_str = str(via_value).strip()
 
     # Extraer número
     import re
     matched = re.search(r'(\d+)', via_str)
     if not matched:
-        return 'N/A'
+        return SENTIDO_NA
 
     via_num = int(matched.group(1))
     if via_num in ASCENDENTES:
-        return 'ASCENDENTE'
+        return SENTIDO_ASC
     if via_num in DESCENDENTES:
-        return 'DESCENDENTE'
-    return 'N/A'
+        return SENTIDO_DESC
+    return SENTIDO_NA
 
 REQUIRED_COLUMNS = ['Hora', 'Vía', 'Tránsito', 'Descripción']
 COLUMN_ALIASES = {
@@ -47,6 +76,23 @@ def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
         col_map[col] = COLUMN_ALIASES.get(lower, col)
     df = df.rename(columns=col_map)
     return df
+
+
+def normalize_sentido(sentido_value):
+    if pd.isna(sentido_value):
+        return SENTIDO_NA
+    s = str(sentido_value).strip().lower()
+    if not s or s in {'n/a', 'na', 'none', 'desconocido'}:
+        return SENTIDO_NA
+    if 'asc' in s:
+        return SENTIDO_ASC
+    if 'desc' in s:
+        return SENTIDO_DESC
+    if 'sube' in s or 'arriba' in s:
+        return SENTIDO_ASC
+    if 'baja' in s or 'abajo' in s:
+        return SENTIDO_DESC
+    return SENTIDO_NA
 
 
 def validate_columns(df: pd.DataFrame) -> None:
@@ -158,13 +204,14 @@ def process_events(df: pd.DataFrame) -> pd.DataFrame:
     # inferir sentido desde vía cuando no esté definido o sea N/A
     df['Via_for_sentido'] = df['Vía'].fillna('').astype(str)
     df['Sentido'] = df.apply(
-        lambda row: row['Sentido']
-        if row['Sentido'] not in ['', 'N/A', 'na', 'None', None] else infer_sentido_from_via(row['Via_for_sentido']),
+        lambda row: infer_sentido_from_via(row['Via_for_sentido'])
+        if normalize_sentido(row['Sentido']) == SENTIDO_NA
+        else normalize_sentido(row['Sentido']),
         axis=1,
     )
 
-    df['Hora'] = pd.to_datetime(df['Hora'], errors='coerce')
-    df['Hora'] = df['Hora'].dt.strftime('%H:%M:%S')
+    df['Hora_dt'] = df['Hora'].apply(parse_hora)
+    df['Hora'] = df['Hora_dt'].dt.strftime('%H:%M:%S')
     df['Hora'] = df['Hora'].fillna(df['Hora_raw'].astype(str)).replace('NaT', 'N/A')
 
     df['Tránsito'] = pd.to_numeric(df['Tránsito'], errors='coerce')
