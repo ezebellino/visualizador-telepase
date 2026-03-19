@@ -87,6 +87,66 @@ Este modo:
 
 ---
 
+## 3.1 Como hacer que arranque automaticamente en Windows
+
+Hay dos formas recomendadas.
+
+## Opcion A: Inicio automatico al iniciar sesion
+Es la opcion mas simple para una PC de uso operativo.
+
+### Pasos
+1. Ejecuta `CREAR_ACCESO_DIRECTO.bat`.
+2. Verifica que se haya creado el acceso directo en el escritorio.
+3. Presiona `Win + R`.
+4. Escribe `shell:startup` y presiona Enter.
+5. Se abrira la carpeta de Inicio de Windows.
+6. Copia dentro de esa carpeta el acceso directo creado para la app.
+7. Reinicia sesion o reinicia la PC para probar.
+
+### Resultado
+Cada vez que el usuario inicie sesion en Windows, la app se abrira automaticamente.
+
+### Cuando conviene
+- si la PC siempre inicia con el mismo usuario
+- si quieres una configuracion simple
+- si quieres evitar consola visible
+
+## Opcion B: Programador de tareas de Windows
+Es la opcion mas profesional cuando quieres mayor control.
+
+### Cuando conviene
+- si quieres retrasar unos segundos el inicio
+- si quieres dejar la tarea documentada en Windows
+- si prefieres un arranque mas controlado que la carpeta Inicio
+
+### Pasos
+1. Abre `Programador de tareas`.
+2. Elige `Crear tarea`.
+3. En la pestaña `General`, ponle un nombre como `Visualizador Telepase`.
+4. Marca `Ejecutar solo cuando el usuario haya iniciado sesion`.
+5. En la pestaña `Desencadenadores`, agrega un desencadenador `Al iniciar sesion`.
+6. En la pestaña `Acciones`, crea una accion `Iniciar un programa`.
+7. En `Programa o script`, coloca:
+
+```text
+wscript.exe
+```
+
+8. En `Agregar argumentos`, coloca:
+
+```text
+//nologo "C:\RUTA\A\VisualizadorTelepase\scripts\launch_app_hidden.vbs"
+```
+
+9. Reemplaza `C:\RUTA\A\VisualizadorTelepase` por la ruta real de tu carpeta.
+10. Guarda la tarea y ejecutala manualmente una vez para comprobar.
+
+### Nota importante
+- Si mueves la carpeta del proyecto, debes actualizar el acceso directo o la tarea.
+- Si vas a usar el proyecto desde pendrive, primero copia toda la carpeta a la PC y despues configura el arranque automatico.
+
+---
+
 ## 4. Primer uso
 1. Ejecuta `INICIAR.bat`.
 2. Espera a que se abra el navegador.
@@ -201,6 +261,11 @@ Usa:
 
 O crea el acceso directo con:
 - `CREAR_ACCESO_DIRECTO.bat`
+
+## Quiero que la app arranque sola al prender la PC
+- Usa la carpeta `shell:startup` si quieres la opcion mas simple.
+- Usa el `Programador de tareas` si quieres una configuracion mas controlada.
+- Revisa la seccion `3.1 Como hacer que arranque automaticamente en Windows`.
 
 ---
 

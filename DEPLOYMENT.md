@@ -72,6 +72,7 @@ docker run --rm -p 8501:8501 visualizador-telepase
 - Usar `ACTUALIZAR_SISTEMA.bat` cuando se quiera actualizar el sistema.
 - Usar `VERIFICAR_SISTEMA.bat` para diagnostico rapido y recuperacion asistida.
 - Usar `CREAR_ACCESO_DIRECTO.bat` si se quiere un acceso directo con icono y sin consola visible.
+- Para configurar arranque automatico en Windows, seguir `MANUAL_USUARIO.md`.
 
 ## Healthcheck del contenedor
 El `Dockerfile` implementa un `HEALTHCHECK` con `urllib.request` contra `http://localhost:8501`.
