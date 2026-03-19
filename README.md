@@ -67,6 +67,7 @@ docker run --rm -p 8501:8501 visualizador-telepase
 - `VERIFICAR_SISTEMA.bat`: verifica dependencias base y respuesta local de la app.
 - `CREAR_ACCESO_DIRECTO.bat`: crea un acceso directo de Windows con `antena.ico`.
 - `scripts/launch_app_hidden.vbs`: inicia la app sin dejar la consola abierta y abre el navegador.
+- `scripts/build_portable_package.ps1`: arma una carpeta portable y un `.zip` para distribucion.
 
 ## Flujo operativo recomendado
 - Para usar la aplicacion en forma normal: `INICIAR.bat`.
@@ -94,3 +95,4 @@ El proyecto esta en proceso de profesionalizacion incremental. La hoja de ruta v
 
 ## Documentacion para usuarios
 - `MANUAL_USUARIO.md`: guia de instalacion, ejecucion, uso diario y arranque automatico en Windows.
+- `RELEASE_NOTES_v1.0.0.md`: resumen de la primera version estable.
