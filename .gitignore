@@ -1,12 +1,10 @@
-# --- Archivos de Datos (Privacidad) ---
+# --- Datos operativos y archivos locales ---
 *.csv
 *.xls
 *.xlsx
-*.txt
 *.log
 
-# --- Python Portable y Entornos Virtuales ---
-# Carpetas comunes de Python
+# --- Entornos y Python portable ---
 Sistema_Python/
 WPy64*/
 python*/
@@ -15,12 +13,11 @@ env/
 .venv/
 Lib/
 Libs/
-Scripts/
 Include/
 share/
 tcl/
 
-# --- Archivos Binarios y del Sistema Python ---
+# --- Binarios y artefactos del runtime ---
 *.exe
 *.dll
 *.pyd
@@ -29,12 +26,17 @@ python*.zip
 pyvenv.cfg
 ._pth
 
-# --- Archivos compilados y caché ---
+# --- Caches y salidas de herramientas ---
 __pycache__/
 *.pyc
 *.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
 
-# --- IDEs y Sistema Operativo ---
+# --- IDE y sistema operativo ---
 .vscode/
 .idea/
 .DS_Store

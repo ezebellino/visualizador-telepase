@@ -1,92 +1,110 @@
-# Deploy & Operación - Visualizador Telepase
+# Deployment y operacion
 
-## 1. Requisitos
-- Docker Desktop (Windows) o Docker Engine (Linux/Mac)
-- Puertos disponibles: 8501
-- Acceso a Internet para descargar imágenes si no están en cache
-- Para ejecución Windows sin Docker: Python embebido en `Sistema_Python`.
+## Objetivo
+Documentar la forma actual de ejecutar, desplegar y mantener el Visualizador Telepase sin depender de supuestos implícitos.
 
-## 2. Ejecutar localmente (modo app directa)
+## Modos de ejecucion soportados
+
+### 1. Desarrollo local
+Con Python del sistema:
+
 ```bash
-cd "C:\Users\ezebe\OneDrive\Escritorio\VisualizadorTelepase"
-\\ Asegurarse de haber instalado dependencias:
-Sistema_Python\python.exe -m pip install -r requirements.txt
+python -m pip install -r requirements.txt
+python -m streamlit run app.py
+```
 
+Con Python portable:
+
+```bash
+Sistema_Python\python.exe -m pip install -r requirements.txt
 Sistema_Python\python.exe -m streamlit run app.py
 ```
-Abrir: `http://localhost:8501`
 
-## 3. Ejecutar por Docker
-1. Build:
+La aplicacion queda disponible en `http://localhost:8501`.
+
+### 2. Docker
+Build:
+
 ```bash
 docker build -t visualizador-telepase .
 ```
-2. Run:
+
+Run:
+
 ```bash
 docker run --rm -p 8501:8501 visualizador-telepase
 ```
-3. Abrir: `http://localhost:8501`
 
-### 3.1 Si el contenedor no arranca
-- Verificar Docker Desktop está ejecutándose.
-- En Windows: debe estar el motor `Docker Desktop Linux Engine` activo.
-- Si da error `cannot find the file specified` equivalente a:
-  - Docker no está iniciado
-  - Reinstalar/actualizar Docker Desktop
+## Scripts de inicio
 
-## 4. Ejecución al iniciar Windows
+### `INICIAR.bat`
+- Pensado para usuarios finales.
+- Lanza Streamlit usando el Python portable del proyecto.
+- No instala dependencias ni actualiza el repositorio.
 
-### Opción 1: Carpeta de inicio
-1. Crear un acceso directo al `run_telepase.bat`.
-2. Mover ese acceso directo a:
-   `C:\Users\<usuario>\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup`
-3. Reiniciar. Al iniciar Windows se ejecutará automáticamente.
+### `CREAR_ACCESO_DIRECTO.bat`
+- Crea un acceso directo `.lnk` en el escritorio.
+- Usa `antena.ico` como icono visible en Windows.
+- Apunta a `INICIAR.bat`, que sigue siendo el lanzador real.
 
-### Opción 2: Task Scheduler (recomendado)
-1. Abrir 'Programador de tareas'.
-2. Crear tarea básica:
-   - Nombre: Visualizador Telepase
-   - Desencadenar: Al iniciar sesión o al iniciar el sistema (según preferencia)
-   - Acción: Iniciar un programa
-   - Programa/script: `run_telepase.bat`
-   - Iniciar en: `C:\Users\<usuario>\OneDrive\Escritorio\VisualizadorTelepase`
-3. Permitir ejecutar con privilegios altos y si no ha iniciado sesión.
+### `run_telepase.bat`
+- Pensado para una operacion mas automatizada.
+- Si existe `.git`, intenta hacer `git pull --ff-only`.
+- Luego ejecuta `pip install -r requirements.txt`.
+- Finalmente inicia Streamlit en modo headless en el puerto `8501`.
 
-### Opción 3: Docker en servicio Windows (avanzado)
-- Instalar y configurar `docker run --rm -p 8501:8501 visualizador-telepase` como servicio.
+Nota:
+Este flujo todavia existe porque forma parte de la operacion actual, pero esta marcado para revision en la Fase 3 del plan de mejora.
 
-## 5. Healthcheck y supervisión
-
-### 5.1 Healthcheck en Docker
-En `Dockerfile` se agregó:
-- `HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \` 
-- `CMD curl -f http://localhost:8501/ || exit 1`
+## Healthcheck del contenedor
+El `Dockerfile` implementa un `HEALTHCHECK` con `urllib.request` contra `http://localhost:8501`.
 
 Esto permite:
-- detectar si la app no responde
-- que orquestadores (Docker Compose, Kubernetes) reinicien el contenedor
+- detectar si la app dejo de responder
+- exponer un estado `healthy` o `unhealthy` en Docker
 
-### 5.2 Monitorización local simple
-- Usar `docker ps` para ver estado: `healthy` / `unhealthy`.
-- Logs: `docker logs -f <container_id>`.
+Para revisar estado y logs:
 
-### 5.3 Auto-actualización al iniciar
-`run_telepase.bat` ahora hace:
-- `git pull --ff-only` (si existe `.git`)
-- `pip install -r requirements.txt`
-- inicia Streamlit.
+```bash
+docker ps
+docker logs -f <container_id>
+```
 
-## 6. Workflow CI
-En `.github/workflows/python-app.yml` se ejecuta en cada push/PR:
-- `pip install -r requirements-dev.txt`
-- `pytest -q`
-- `ruff check .`
-- `black --check .`
+## Calidad y validacion antes de desplegar
+Instalar dependencias:
 
-## 7. Rollback (de emergencia)
-- Volver a commit anterior con `git checkout <commit_id>`
-- Rebuild y run.
+```bash
+python -m pip install -r requirements.txt
+python -m pip install -r requirements-dev.txt
+```
 
-## 6. Nota de seguridad
-- No subir archivos `Sistema_Python` al repo si contiene información sensible.
-- Sólo el código fuente y requirements.
+Ejecutar validaciones:
+
+```bash
+python -m pytest -q
+ruff check .
+black --check .
+```
+
+## CI actual
+El workflow de GitHub Actions:
+- instala dependencias runtime y dev
+- ejecuta `python -m pytest -q`
+- corre `ruff check .`
+- corre `black --check .`
+
+Archivo: `.github/workflows/python-app.yml`
+
+## Recomendaciones operativas
+- No versionar reportes reales dentro del repositorio.
+- Mantener `Sistema_Python` fuera de Git.
+- Hacer pruebas locales antes de cada push importante.
+- Usar Docker para una ejecucion mas predecible si el entorno local cambia seguido.
+
+## Rollback
+Si una version nueva falla:
+
+1. Volver al commit anterior estable.
+2. Reinstalar dependencias si cambiaron.
+3. Reejecutar tests.
+4. Reiniciar la app o recrear el contenedor.

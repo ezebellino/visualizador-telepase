@@ -1,93 +1,83 @@
-# 📡 Sistema de Monitoreo y Análisis de Antenas Telepase (v1.1)
+# Visualizador Telepase
 
-![Demo de la aplicación](demo.png)
+![Demo de la aplicacion](demo.png)
 
-Este proyecto es una herramienta de análisis de datos desarrollada en Python para monitorear y visualizar el rendimiento de las antenas de lectura de Telepase en estaciones de peaje. 
+Aplicacion en Streamlit para analizar reportes de eventos Telepase, detectar lecturas correctas de TAG, identificar intervenciones manuales y filtrar la operacion por via, sentido, horario y patente.
 
-La aplicación procesa reportes de eventos, identifica vehículos únicos y calcula la efectividad de lectura automática, permitiendo ahora un filtrado granular por vías y extracción avanzada de datos.
+## Que hace hoy
+- Carga archivos `csv`, `xls` y `xlsx`.
+- Detecta la fila real de cabecera en reportes ruidosos.
+- Normaliza columnas clave como `Hora`, `Via`, `Transito` y `Descripcion`.
+- Extrae `Patente` y `TAG` desde observaciones mediante expresiones regulares.
+- Agrupa eventos por numero de transito para evitar duplicados funcionales.
+- Clasifica cada transito como lectura correcta, manual o otro.
+- Permite filtrar resultados y exportarlos a CSV y Excel.
 
-## ✨ Novedades en la última versión
-* **Extracción Inteligente (Regex):** El sistema ahora lee las observaciones y extrae automáticamente la **Patente** y el **Número de Dispositivo TAG** de cada vehículo.
-* **Filtros Dinámicos:** Nuevo panel lateral para filtrar la información por **Vías** específicas (ej: Vías Ascendentes vs. Descendentes).
-* **Mejoras de UI/UX:** Gráficos actualizados con colores semánticos (Verde = Éxito, Rojo = Fallo, Amarillo = Violación/Exento) para una lectura visual más rápida y tablas responsivas.
-* **Datos Temporales Precisos:** Detección y conversión nativa de los horarios de eventos directamente desde los metadatos del archivo.
+## Estructura actual
+- `app.py`: interfaz Streamlit.
+- `etl.py`: fuente de verdad del procesamiento.
+- `src/etl.py`: wrapper de compatibilidad.
+- `tests/test_etl.py`: pruebas automatizadas del ETL.
+- `PLAN_MEJORA.md`: roadmap tecnico.
 
-## 🚀 Funcionalidades Principales
+## Ejecutar en desarrollo
+Con Python del sistema:
 
-* **Detección de Vehículos:** Agrupa eventos por número de tránsito único para evitar duplicados en el conteo.
-* **Lógica de Clasificación:**
-    * **Leído Correctamente:** Vehículos con eventos de "TAG" sin intervención manual.
-    * **Fallo (Manual):** Identifica intervenciones manuales ("Patente Ingresada Manualmente") previas al cierre del tránsito.
-    * **Otros:** Clasificación de violaciones de vía y vehículos exentos.
-* **Compatibilidad Universal:** Soporta archivos antiguos de Excel (`.xls` binarios) y CSVs modernos, detectando automáticamente la codificación.
-* **Modo Portable:** Diseñado para ejecutarse desde una memoria USB sin instalación previa en el equipo host.
+```bash
+python -m pip install -r requirements.txt
+python -m streamlit run app.py
+```
 
-## 🛠️ Tecnologías Utilizadas
-* **Python 3.11** (Lógica central y Expresiones Regulares `re`)
-* **Pandas** (Limpieza y manipulación de DataFrames)
-* **Streamlit** (Interfaz de usuario web)
-* **Altair** (Visualización de datos semántica)
-* **OpenPyXL / XLRD** (Soporte multiplataforma para Excel)
+Con el Python portable incluido:
 
-## 📋 Requisitos de Instalación (Para Desarrolladores)
+```bash
+Sistema_Python\python.exe -m pip install -r requirements.txt
+Sistema_Python\python.exe -m streamlit run app.py
+```
 
-Si deseas ejecutar el código fuente en tu entorno de desarrollo:
+Abrir en `http://localhost:8501`.
 
-1.  Clona el repositorio:
-    ```bash
-    git clone [https://github.com/ezebellino/visualizador-telepase.git](https://github.com/ezebellino/visualizador-telepase.git)
-    cd visualizador-telepase
-    ```
+## Ejecutar tests
+Con Python del sistema:
 
-2.  Instala las dependencias:
-    ```bash
-    pip install streamlit pandas altair openpyxl xlrd
-    ```
+```bash
+python -m pip install -r requirements.txt
+python -m pip install -r requirements-dev.txt
+python -m pytest -q
+```
 
-3.  Ejecuta la aplicación:
-    ```bash
-    streamlit run app.py
-    ```
+Con el Python portable:
 
-## 🐳 Modo Docker
+```bash
+Sistema_Python\python.exe -m pytest -q
+```
 
-1. Build:
-    ```bash
-    docker build -t visualizador-telepase .
-    ```
-2. Run:
-    ```bash
-    docker run -p 8501:8501 visualizador-telepase
-    ```
-3. Abrir en: http://localhost:8501
+`pytest` ya esta configurado para ejecutar solo la carpeta `tests/`.
 
-## ✅ CI (GitHub Actions)
+## Ejecutar con Docker
+```bash
+docker build -t visualizador-telepase .
+docker run --rm -p 8501:8501 visualizador-telepase
+```
 
-Se agregó `/.github/workflows/python-app.yml`:
-- tests con `pytest`
-- lint con `ruff` y `black`
+## Scripts disponibles
+- `INICIAR.bat`: inicio simple para usuarios finales.
+- `run_telepase.bat`: inicio operativo con actualizacion automatica previa.
+- `CREAR_ACCESO_DIRECTO.bat`: crea un acceso directo de Windows con `antena.ico`.
 
-![GitHub Actions](https://github.com/<TU_USUARIO>/<TU_REPOSITORY>/actions/workflows/python-app.yml/badge.svg)
+## Icono del lanzador en Windows
+Un archivo `.bat` no puede llevar un icono embebido propio en el Explorador de Windows. Para resolverlo de forma profesional, el proyecto incluye `CREAR_ACCESO_DIRECTO.bat`, que genera un acceso directo `.lnk` en el escritorio usando `antena.ico` y apuntando a `INICIAR.bat`.
 
-*Reemplaza `<TU_USUARIO>` y `<TU_REPOSITORY>` por tu usuario y repo reales.*
+## Calidad automatizada
+El proyecto incluye:
 
-## 💾 Modo Portable (Para Usuarios Finales)
+- `pytest` para pruebas.
+- `ruff` para chequeos estaticos.
+- `black` para formato.
+- GitHub Actions en `.github/workflows/python-app.yml`.
 
-Esta aplicación está diseñada para ser distribuida en una carpeta portable ("Portable App") que incluye un intérprete de Python embebido.
+## Datos y privacidad
+El repositorio no deberia almacenar reportes operativos reales. Para pruebas manuales, usar archivos anonimizados fuera del repo o generar muestras sinteticas.
 
-**Pasos para ejecutar:**
-1.  Conecta el pendrive o descarga la carpeta del proyecto.
-2.  Haz doble clic en el archivo **`INICIAR.bat`**.
-3.  Se abrirá automáticamente el navegador con el visualizador.
-4.  Arrastra tu archivo `.xls` o `.csv` al área de carga.
-
-## 🔍 Lógica de Clasificación
-
-El algoritmo sigue estas reglas de prioridad basándose en la secuencia de eventos del reporte:
-
-1.  **Manual (Fallo):** Si antes de cerrar el tránsito aparece el evento "Tránsito con Patente Ingresada Manualmente", se considera que la antena falló, independientemente de si luego el sistema asignó una categoría de TAG.
-2.  **Leído (Éxito):** Si el vehículo tiene eventos de "TAG" y no requirió ingreso manual.
-3.  **Otro:** Violaciones, exentos sin Tag o vehículos sin categorizar.
-
----
-**Desarrollado por [Zeqe Bellino](https://zeqebellino.com)**
+## Estado del proyecto
+El proyecto esta en proceso de profesionalizacion incremental. La hoja de ruta vigente esta documentada en `PLAN_MEJORA.md`.
