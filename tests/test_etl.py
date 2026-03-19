@@ -115,5 +115,17 @@ def test_process_events_infer_sentido_from_via():
     df_input = pd.DataFrame(rows)
 
     df_output = process_events(df_input)
-    assert df_output.loc[df_output['Tránsito'] == 1, 'Sentido'].iloc[0] == 'ASCENDENTE'
-    assert df_output.loc[df_output['Tránsito'] == 2, 'Sentido'].iloc[0] == 'DESCENDENTE'
+    assert df_output.loc[df_output['Tránsito'] == 1, 'Sentido'].iloc[0] == 'Asc'
+    assert df_output.loc[df_output['Tránsito'] == 2, 'Sentido'].iloc[0] == 'Desc'
+
+
+def test_process_events_sentido_normalizado():
+    rows = [
+        {'Hora': '09:00', 'Vía': '7', 'Tránsito': 3, 'Descripción': 'TAG OK', 'Observación': '', 'Sentido': 'Ascendente'},
+        {'Hora': '09:02', 'Vía': '51', 'Tránsito': 4, 'Descripción': 'TAG OK', 'Observación': '', 'Sentido': 'Descending'},
+    ]
+    df_input = pd.DataFrame(rows)
+
+    df_output = process_events(df_input)
+    assert df_output.loc[df_output['Tránsito'] == 3, 'Sentido'].iloc[0] == 'Asc'
+    assert df_output.loc[df_output['Tránsito'] == 4, 'Sentido'].iloc[0] == 'Desc'

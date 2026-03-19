@@ -56,6 +56,14 @@ if not df_processed.empty:
     start_time = col_time1.time_input("Hora inicio", min_hora)
     end_time = col_time2.time_input("Hora fin", max_hora)
 
+    # seleccion de tipo de gráfico de eficiencia
+    grafico_tipo = st.sidebar.selectbox(
+        'Tipo de gráfico de lectura',
+        ['Barra por estado', 'Pie de lectura', 'Línea de efectividad'],
+        index=0,
+        help='Elige cómo visualizar la lectura de antena'
+    )
+
     # aplicando filtros
     df_filtrado = df_processed[df_processed['Vía'].isin(vias_seleccionadas)]
     df_filtrado = df_filtrado[df_filtrado['Sentido'].isin(sentido_seleccionado)]
@@ -87,17 +95,41 @@ if not df_processed.empty:
 
         st.divider()
 
-        # Histograma por hora
-        df_hist = df_filtrado.copy()
-        df_hist['Hora_agrupada'] = df_hist['Hora_dt'].dt.floor('15min')
-        hour_chart = alt.Chart(df_hist).mark_bar().encode(
-            x=alt.X('Hora_agrupada:T', title='Hora'),
-            y=alt.Y('count():Q', title='Cantidad'),
-            color=alt.Color('Estado:N', legend=alt.Legend(title='Estado')),
-            tooltip=['Hora_agrupada:T', 'count():Q', 'Estado:N']
-        ).properties(height=320)
+        # Gráfico de lectura según selección del usuario
+        df_chart = df_filtrado.copy()
+        if grafico_tipo == 'Barra por estado':
+            df_chart['Hora_agrupada'] = df_chart['Hora_dt'].dt.floor('15min')
+            chart = alt.Chart(df_chart).mark_bar().encode(
+                x=alt.X('Hora_agrupada:T', title='Hora'),
+                y=alt.Y('count():Q', title='Cantidad'),
+                color=alt.Color('Estado:N', legend=alt.Legend(title='Estado')),
+                tooltip=['Hora_agrupada:T', 'count():Q', 'Estado:N']
+            ).properties(height=320)
 
-        st.altair_chart(hour_chart, use_container_width=True)
+        elif grafico_tipo == 'Pie de lectura':
+            status_counts = df_chart['Estado'].value_counts().reset_index()
+            status_counts.columns = ['Estado', 'Cantidad']
+            chart = alt.Chart(status_counts).mark_arc(innerRadius=50).encode(
+                theta=alt.Theta(field='Cantidad', type='quantitative'),
+                color=alt.Color(field='Estado', type='nominal', legend=alt.Legend(title='Estado')),
+                tooltip=['Estado', 'Cantidad']
+            ).properties(height=360)
+
+        else:  # Línea de efectividad
+            df_trend = df_chart.copy()
+            df_trend['Hora_agrupada'] = df_trend['Hora_dt'].dt.floor('15min')
+            trend = df_trend.groupby('Hora_agrupada').agg(
+                total=('Tránsito', 'count'),
+                leidos=('Estado', lambda s: (s == 'Leído Correctamente (TAG)').sum())
+            ).reset_index()
+            trend['Efectividad'] = trend['leidos'] / trend['total'] * 100
+            chart = alt.Chart(trend).mark_line(point=True).encode(
+                x=alt.X('Hora_agrupada:T', title='Hora'),
+                y=alt.Y('Efectividad:Q', title='Efectividad (%)'),
+                tooltip=['Hora_agrupada:T', alt.Tooltip('Efectividad:Q', format='.1f')]
+            ).properties(height=360)
+
+        st.altair_chart(chart, use_container_width=True)
 
         st.divider()
 
