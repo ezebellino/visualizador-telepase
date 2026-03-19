@@ -127,13 +127,14 @@ Operacion mas estable y profesional.
 ---
 
 ## Fase 4: Endurecimiento funcional y experiencia de uso
+Estado: completada.
 Objetivo: refinar la aplicacion ya estabilizada para un uso empresarial mas pulido.
 
-- [ ] Revisar la UI para mejorar claridad visual y jerarquia de informacion.
-- [ ] Reforzar manejo de errores en carga de archivos y filtros extremos.
-- [ ] Agregar pruebas para casos reales de borde detectados en operacion.
-- [ ] Evaluar separar logica de negocio, capa de presentacion y utilidades.
-- [ ] Incorporar logging util para diagnostico sin exponer datos sensibles.
+- [x] Revisar la UI para mejorar claridad visual y jerarquia de informacion.
+- [x] Reforzar manejo de errores en carga de archivos y filtros extremos.
+- [x] Agregar pruebas para casos reales de borde detectados en operacion.
+- [x] Evaluar separar logica de negocio, capa de presentacion y utilidades.
+- [x] Incorporar logging util para diagnostico sin exponer datos sensibles.
 
 ### Criterios de aceptacion
 - La app responde mejor a entradas imperfectas.
@@ -178,3 +179,5 @@ Esta es la secuencia recomendada para las proximas iteraciones:
 - 2026-03-18: Fase 3 iniciada. Se separo el arranque estable (`INICIAR.bat` y `run_telepase.bat`) del flujo de actualizacion (`ACTUALIZAR_SISTEMA.bat`).
 - 2026-03-18: Se agrego un launcher oculto con `pythonw.exe` para evitar la consola visible en el uso normal y se mejoro la documentacion operativa.
 - 2026-03-18: Fase 3 completada. Se endurecio `ACTUALIZAR_SISTEMA.bat`, se agrego `VERIFICAR_SISTEMA.bat` y se documentaron chequeos de salud y recuperacion.
+- 2026-03-19: Fase 4 en progreso. Se separo logica del dashboard en `app_logic.py`, se mejoro la jerarquia visual de `app.py`, se endurecieron filtros extremos y se agregaron pruebas nuevas para la capa de aplicacion.
+- 2026-03-19: Fase 4 completada. Se agrego logging diagnostico en archivo sin exponer datos sensibles y se cerraron las mejoras de UX y robustez interna de la app.

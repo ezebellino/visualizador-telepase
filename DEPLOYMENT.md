@@ -117,6 +117,7 @@ Archivo: `.github/workflows/python-app.yml`
 - Mantener `Sistema_Python` fuera de Git.
 - Hacer pruebas locales antes de cada push importante.
 - Usar Docker para una ejecucion mas predecible si el entorno local cambia seguido.
+- Revisar `logs/visualizador_telepase.log` para diagnostico funcional de la app.
 
 ## Recuperacion sugerida
 Si la aplicacion no inicia o deja de responder:

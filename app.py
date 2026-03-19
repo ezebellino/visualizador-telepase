@@ -4,6 +4,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
+from app_logging import get_logger
 from app_logic import (
     DISPLAY_COLUMNS,
     STATUS_READ,
@@ -19,6 +20,7 @@ from app_logic import (
 from etl import load_data, process_events
 
 st.set_page_config(page_title="Monitor de Lectura Telepase", layout="wide")
+logger = get_logger()
 
 st.markdown(
     """
@@ -58,8 +60,15 @@ st.markdown(
 
 @st.cache_data
 def compute_processed(uploaded_file):
+    logger.info("Procesando archivo cargado: %s", uploaded_file.name)
     df_clean = load_data(uploaded_file)
-    return process_events(df_clean)
+    processed = process_events(df_clean)
+    logger.info(
+        "Archivo procesado correctamente: %s | registros=%s",
+        uploaded_file.name,
+        len(processed),
+    )
+    return processed
 
 
 def render_empty_state():
@@ -93,6 +102,7 @@ def render_empty_state():
 
 
 def render_processing_error(error: Exception):
+    logger.exception("Fallo al procesar el archivo: %s", error)
     st.error(f"No se pudo procesar el archivo: {error}")
     with st.expander("Sugerencias para corregir el archivo"):
         st.write("""
@@ -333,6 +343,7 @@ def main():
         return
 
     if df_processed.empty:
+        logger.warning("Archivo sin registros utilizables: %s", uploaded_file.name)
         st.warning("El archivo se pudo leer, pero no generó registros utilizables.")
         return
 
@@ -348,16 +359,27 @@ def main():
             filters["end_time"],
         )
     except ValueError as error:
+        logger.warning("Filtro inválido aplicado: %s", error)
         st.warning(str(error))
         return
 
     if df_filtrado.empty:
+        logger.info(
+            "Filtros sin resultados | archivo=%s | vias=%s | sentidos=%s",
+            uploaded_file.name,
+            len(filters["vias"]),
+            len(filters["sentidos"]),
+        )
         st.warning("No hay datos para las opciones de filtro seleccionadas.")
         return
 
     render_header(df_filtrado, filters)
 
     if STATUS_READ not in df_filtrado["Estado"].unique():
+        logger.info(
+            "Subconjunto sin lecturas TAG correctas | archivo=%s",
+            uploaded_file.name,
+        )
         st.info(
             "No hay lecturas TAG correctas en el subconjunto actual. "
             "Revisa filtros o exporta el detalle para inspección."

@@ -91,3 +91,6 @@ El repositorio no deberia almacenar reportes operativos reales. Para pruebas man
 
 ## Estado del proyecto
 El proyecto esta en proceso de profesionalizacion incremental. La hoja de ruta vigente esta documentada en `PLAN_MEJORA.md`.
+
+## Documentacion para usuarios
+- `MANUAL_USUARIO.md`: guia de instalacion, ejecucion y uso diario para usuarios finales.
