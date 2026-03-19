@@ -64,6 +64,7 @@ docker run --rm -p 8501:8501 visualizador-telepase
 - `INICIAR.bat`: inicio rapido que delega el arranque a un launcher oculto.
 - `run_telepase.bat`: inicio operativo estable en modo headless.
 - `ACTUALIZAR_SISTEMA.bat`: actualiza codigo y dependencias de forma explicita.
+- `VERIFICAR_SISTEMA.bat`: verifica dependencias base y respuesta local de la app.
 - `CREAR_ACCESO_DIRECTO.bat`: crea un acceso directo de Windows con `antena.ico`.
 - `scripts/launch_app_hidden.vbs`: inicia la app sin dejar la consola abierta y abre el navegador.
 
@@ -71,6 +72,7 @@ docker run --rm -p 8501:8501 visualizador-telepase
 - Para usar la aplicacion en forma normal: `INICIAR.bat`.
 - Para ejecutar la app como servicio local o arranque automatico: `run_telepase.bat`.
 - Para actualizar el sistema de manera manual y controlada: `ACTUALIZAR_SISTEMA.bat`.
+- Para comprobar estado y recuperacion basica: `VERIFICAR_SISTEMA.bat`.
 - Para evitar la consola visible en Windows: usar el acceso directo generado o `INICIAR.bat`.
 
 ## Icono del lanzador en Windows

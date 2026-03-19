@@ -44,9 +44,17 @@ docker run --rm -p 8501:8501 visualizador-telepase
 - Evita dejar la consola abierta durante el uso normal.
 
 ### `ACTUALIZAR_SISTEMA.bat`
+- Pide confirmacion antes de modificar el entorno.
+- Se detiene si detecta cambios locales sin confirmar en Git.
 - Ejecuta `git pull --ff-only` si el proyecto es un repositorio Git.
 - Instala dependencias desde `requirements.txt`.
 - Se usa solo cuando se quiere actualizar el sistema de forma explicita.
+
+### `VERIFICAR_SISTEMA.bat`
+- Verifica `python.exe`, `pythonw.exe`, `app.py` y `requirements.txt`.
+- Comprueba que Streamlit este disponible en el entorno portable.
+- Intenta conectarse a `http://127.0.0.1:8501` para validar si la app responde.
+- Si falla, muestra una secuencia de recuperacion recomendada.
 
 ### `CREAR_ACCESO_DIRECTO.bat`
 - Crea un acceso directo `.lnk` en el escritorio.
@@ -62,6 +70,7 @@ docker run --rm -p 8501:8501 visualizador-telepase
 - Usar `INICIAR.bat` para usuarios finales.
 - Usar `run_telepase.bat` para tareas de inicio automatico o modo servicio.
 - Usar `ACTUALIZAR_SISTEMA.bat` cuando se quiera actualizar el sistema.
+- Usar `VERIFICAR_SISTEMA.bat` para diagnostico rapido y recuperacion asistida.
 - Usar `CREAR_ACCESO_DIRECTO.bat` si se quiere un acceso directo con icono y sin consola visible.
 
 ## Healthcheck del contenedor
@@ -108,6 +117,14 @@ Archivo: `.github/workflows/python-app.yml`
 - Mantener `Sistema_Python` fuera de Git.
 - Hacer pruebas locales antes de cada push importante.
 - Usar Docker para una ejecucion mas predecible si el entorno local cambia seguido.
+
+## Recuperacion sugerida
+Si la aplicacion no inicia o deja de responder:
+
+1. Ejecutar `VERIFICAR_SISTEMA.bat`.
+2. Si faltan dependencias o hay inconsistencias, ejecutar `ACTUALIZAR_SISTEMA.bat`.
+3. Iniciar nuevamente con `INICIAR.bat` o `run_telepase.bat`.
+4. Si el problema persiste, revisar logs del contenedor o volver al ultimo commit estable.
 
 ## Rollback
 Si una version nueva falla:

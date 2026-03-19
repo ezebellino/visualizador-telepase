@@ -1,30 +1,29 @@
 import csv
 import re
-from io import StringIO
 import datetime
 
 import pandas as pd
 
 ASCENDENTES = {7, 8, 9, 10, 11}
 DESCENDENTES = {51, 52, 53, 54, 55}
-SENTIDO_ASC = 'Asc'
-SENTIDO_DESC = 'Desc'
-SENTIDO_NA = 'N/A'
+SENTIDO_ASC = "Asc"
+SENTIDO_DESC = "Desc"
+SENTIDO_NA = "N/A"
 
 
 def parse_hora(value):
     if pd.isna(value):
         return pd.NaT
     s = str(value).strip()
-    if s == '':
+    if s == "":
         return pd.NaT
 
     formats = [
-        '%H:%M:%S',
-        '%H:%M',
-        '%Y-%m-%d %H:%M:%S',
-        '%d/%m/%Y %H:%M:%S',
-        '%Y-%m-%dT%H:%M:%S',
+        "%H:%M:%S",
+        "%H:%M",
+        "%Y-%m-%d %H:%M:%S",
+        "%d/%m/%Y %H:%M:%S",
+        "%Y-%m-%dT%H:%M:%S",
     ]
 
     for fmt in formats:
@@ -34,7 +33,7 @@ def parse_hora(value):
             continue
 
     # Fallback a pandas con inferencia, sin warning por formato wrong
-    return pd.to_datetime(s, errors='coerce', infer_datetime_format=True)
+    return pd.to_datetime(s, errors="coerce", infer_datetime_format=True)
 
 
 def infer_sentido_from_via(via_value):
@@ -44,7 +43,8 @@ def infer_sentido_from_via(via_value):
 
     # Extraer número
     import re
-    matched = re.search(r'(\d+)', via_str)
+
+    matched = re.search(r"(\d+)", via_str)
     if not matched:
         return SENTIDO_NA
 
@@ -55,15 +55,16 @@ def infer_sentido_from_via(via_value):
         return SENTIDO_DESC
     return SENTIDO_NA
 
-REQUIRED_COLUMNS = ['Hora', 'Vía', 'Tránsito', 'Descripción']
+
+REQUIRED_COLUMNS = ["Hora", "Vía", "Tránsito", "Descripción"]
 COLUMN_ALIASES = {
-    'hora': 'Hora',
-    'vía': 'Vía',
-    'via': 'Vía',
-    'tránsito': 'Tránsito',
-    'transito': 'Tránsito',
-    'descripción': 'Descripción',
-    'descripcion': 'Descripción',
+    "hora": "Hora",
+    "vía": "Vía",
+    "via": "Vía",
+    "tránsito": "Tránsito",
+    "transito": "Tránsito",
+    "descripción": "Descripción",
+    "descripcion": "Descripción",
 }
 
 
@@ -82,15 +83,15 @@ def normalize_sentido(sentido_value):
     if pd.isna(sentido_value):
         return SENTIDO_NA
     s = str(sentido_value).strip().lower()
-    if not s or s in {'n/a', 'na', 'none', 'desconocido'}:
+    if not s or s in {"n/a", "na", "none", "desconocido"}:
         return SENTIDO_NA
-    if 'asc' in s:
+    if "asc" in s:
         return SENTIDO_ASC
-    if 'desc' in s:
+    if "desc" in s:
         return SENTIDO_DESC
-    if 'sube' in s or 'arriba' in s:
+    if "sube" in s or "arriba" in s:
         return SENTIDO_ASC
-    if 'baja' in s or 'abajo' in s:
+    if "baja" in s or "abajo" in s:
         return SENTIDO_DESC
     return SENTIDO_NA
 
@@ -98,14 +99,19 @@ def normalize_sentido(sentido_value):
 def validate_columns(df: pd.DataFrame) -> None:
     missing = [c for c in REQUIRED_COLUMNS if c not in df.columns]
     if missing:
-        raise ValueError(f'Faltan columnas requeridas: {missing}')
+        raise ValueError(f"Faltan columnas requeridas: {missing}")
 
 
 def find_header_and_data(df_raw: pd.DataFrame) -> pd.DataFrame | None:
     header_idx = None
     for i, row in df_raw.head(50).iterrows():
-        row_text = ' '.join(row.astype(str).str.lower().values)
-        if 'hora' in row_text and ('vía' in row_text or 'via' in row_text or 'descripción' in row_text or 'descripcion' in row_text):
+        row_text = " ".join(row.astype(str).str.lower().values)
+        if "hora" in row_text and (
+            "vía" in row_text
+            or "via" in row_text
+            or "descripción" in row_text
+            or "descripcion" in row_text
+        ):
             header_idx = i
             break
     if header_idx is None:
@@ -121,31 +127,31 @@ def find_header_and_data(df_raw: pd.DataFrame) -> pd.DataFrame | None:
 
 
 def load_data(uploaded_file) -> pd.DataFrame | None:
-    file_extension = uploaded_file.name.split('.')[-1].lower()
+    file_extension = uploaded_file.name.split(".")[-1].lower()
 
     df = None
-    if file_extension in ['xls', 'xlsx']:
-        engine = 'xlrd' if file_extension == 'xls' else 'openpyxl'
+    if file_extension in ["xls", "xlsx"]:
+        engine = "xlrd" if file_extension == "xls" else "openpyxl"
         try:
             df = pd.read_excel(uploaded_file, header=None, engine=engine)
         except Exception as ex:
-            raise ValueError(f'No se pudo leer el archivo Excel: {ex}')
+            raise ValueError(f"No se pudo leer el archivo Excel: {ex}")
     else:
         uploaded_file.seek(0)
         content = uploaded_file.read()
         if isinstance(content, bytes):
-            content = content.decode('latin-1', errors='ignore')
+            content = content.decode("latin-1", errors="ignore")
         uploaded_file.seek(0)
 
-        sep = ','
+        sep = ","
         try:
             sniff = csv.Sniffer()
             dialect = sniff.sniff(content[:4096])
             sep = dialect.delimiter
         except Exception:
-            sep = ','
+            sep = ","
 
-        for encoding in ['utf-8', 'latin-1', 'cp1252']:
+        for encoding in ["utf-8", "latin-1", "cp1252"]:
             try:
                 uploaded_file.seek(0)
                 df = pd.read_csv(
@@ -153,8 +159,8 @@ def load_data(uploaded_file) -> pd.DataFrame | None:
                     header=None,
                     encoding=encoding,
                     sep=sep,
-                    engine='python',
-                    on_bad_lines='warn',
+                    engine="python",
+                    on_bad_lines="warn",
                 )
                 break
             except Exception:
@@ -165,23 +171,23 @@ def load_data(uploaded_file) -> pd.DataFrame | None:
 
     df = find_header_and_data(df)
     if df is None:
-        raise ValueError('No se encontró la fila de cabecera con Hora/Vía/Descripción.')
+        raise ValueError("No se encontró la fila de cabecera con Hora/Vía/Descripción.")
     validate_columns(df)
     return df
 
 
 def extract_patente(obs) -> str:
     if pd.isna(obs):
-        return 'N/A'
-    match = re.search(r'Patente:\s*([A-Z0-9]+)', str(obs), re.IGNORECASE)
-    return match.group(1) if match else 'N/A'
+        return "N/A"
+    match = re.search(r"Patente:\s*([A-Z0-9]+)", str(obs), re.IGNORECASE)
+    return match.group(1) if match else "N/A"
 
 
 def extract_tag(obs) -> str:
     if pd.isna(obs):
-        return 'N/A'
-    match = re.search(r'(?:Número|Tag):\s*([A-Z0-9]+)', str(obs), re.IGNORECASE)
-    return match.group(1) if match else 'N/A'
+        return "N/A"
+    match = re.search(r"(?:Número|Tag):\s*([A-Z0-9]+)", str(obs), re.IGNORECASE)
+    return match.group(1) if match else "N/A"
 
 
 def process_events(df: pd.DataFrame) -> pd.DataFrame:
@@ -189,62 +195,98 @@ def process_events(df: pd.DataFrame) -> pd.DataFrame:
     df = normalize_columns(df)
     validate_columns(df)
 
-    df['Observación'] = df.get('Observación', '')
-    if not isinstance(df['Observación'], pd.Series):
-        df['Observación'] = pd.Series([df['Observación']] * len(df))
-    df['Observación'] = df['Observación'].fillna('')
+    df["Observación"] = df.get("Observación", "")
+    if not isinstance(df["Observación"], pd.Series):
+        df["Observación"] = pd.Series([df["Observación"]] * len(df))
+    df["Observación"] = df["Observación"].fillna("")
 
-    if 'Sentido' not in df.columns:
-        df['Sentido'] = 'N/A'
+    if "Sentido" not in df.columns:
+        df["Sentido"] = "N/A"
     else:
-        df['Sentido'] = df['Sentido'].fillna('N/A')
+        df["Sentido"] = df["Sentido"].fillna("N/A")
 
-    df['Hora_raw'] = df['Hora']
+    df["Hora_raw"] = df["Hora"]
 
     # inferir sentido desde vía cuando no esté definido o sea N/A
-    df['Via_for_sentido'] = df['Vía'].fillna('').astype(str)
-    df['Sentido'] = df.apply(
-        lambda row: infer_sentido_from_via(row['Via_for_sentido'])
-        if normalize_sentido(row['Sentido']) == SENTIDO_NA
-        else normalize_sentido(row['Sentido']),
+    df["Via_for_sentido"] = df["Vía"].fillna("").astype(str)
+    df["Sentido"] = df.apply(
+        lambda row: (
+            infer_sentido_from_via(row["Via_for_sentido"])
+            if normalize_sentido(row["Sentido"]) == SENTIDO_NA
+            else normalize_sentido(row["Sentido"])
+        ),
         axis=1,
     )
 
-    df['Hora_dt'] = df['Hora'].apply(parse_hora)
-    df['Hora'] = df['Hora_dt'].dt.strftime('%H:%M:%S')
-    df['Hora'] = df['Hora'].fillna(df['Hora_raw'].astype(str)).replace('NaT', 'N/A')
+    df["Hora_dt"] = df["Hora"].apply(parse_hora)
+    df["Hora"] = df["Hora_dt"].dt.strftime("%H:%M:%S")
+    df["Hora"] = df["Hora"].fillna(df["Hora_raw"].astype(str)).replace("NaT", "N/A")
 
-    df['Tránsito'] = pd.to_numeric(df['Tránsito'], errors='coerce')
-    df['Tránsito'] = df['Tránsito'].ffill()
-    df = df[df['Tránsito'].notna()]
-    df['Tránsito'] = df['Tránsito'].astype(int)
+    df["Tránsito"] = pd.to_numeric(df["Tránsito"], errors="coerce")
+    df["Tránsito"] = df["Tránsito"].ffill()
+    df = df[df["Tránsito"].notna()]
+    df["Tránsito"] = df["Tránsito"].astype(int)
 
-    df['Patente'] = df['Observación'].apply(extract_patente)
-    df['TAG'] = df['Observación'].apply(extract_tag)
+    df["Patente"] = df["Observación"].apply(extract_patente)
+    df["TAG"] = df["Observación"].apply(extract_tag)
 
-    df['es_manual'] = df['Descripción'].astype(str).str.contains('Tránsito con Patente Ingresada Manualmente', case=False, na=False)
-    df['es_tag'] = df['Descripción'].astype(str).str.contains('TAG', case=False, na=False)
+    df["es_manual"] = (
+        df["Descripción"]
+        .astype(str)
+        .str.contains(
+            "Tránsito con Patente Ingresada Manualmente", case=False, na=False
+        )
+    )
+    df["es_tag"] = (
+        df["Descripción"].astype(str).str.contains("TAG", case=False, na=False)
+    )
 
-    grouped = df.groupby('Tránsito', as_index=False).agg(
-        Vía=('Vía', lambda s: s.dropna().iloc[0] if not s.dropna().empty else 'Desconocida'),
-        Hora=('Hora', lambda s: s.dropna().iloc[0] if not s.dropna().empty else 'N/A'),
-        Patente=('Patente', lambda s: s[s != 'N/A'].iloc[0] if not s[s != 'N/A'].empty else 'N/A'),
-        TAG=('TAG', lambda s: s[s != 'N/A'].iloc[0] if not s[s != 'N/A'].empty else 'N/A'),
-        Sentido=('Sentido', lambda s: s.dropna().iloc[0] if not s.dropna().empty else 'N/A'),
-        Descripción_Original=('Descripción', lambda s: s.dropna().iloc[0] if not s.dropna().empty else ''),
-        any_manual=('es_manual', 'any'),
-        any_tag=('es_tag', 'any'),
+    grouped = df.groupby("Tránsito", as_index=False).agg(
+        Vía=(
+            "Vía",
+            lambda s: s.dropna().iloc[0] if not s.dropna().empty else "Desconocida",
+        ),
+        Hora=("Hora", lambda s: s.dropna().iloc[0] if not s.dropna().empty else "N/A"),
+        Patente=(
+            "Patente",
+            lambda s: s[s != "N/A"].iloc[0] if not s[s != "N/A"].empty else "N/A",
+        ),
+        TAG=(
+            "TAG",
+            lambda s: s[s != "N/A"].iloc[0] if not s[s != "N/A"].empty else "N/A",
+        ),
+        Sentido=(
+            "Sentido",
+            lambda s: s.dropna().iloc[0] if not s.dropna().empty else "N/A",
+        ),
+        Descripción_Original=(
+            "Descripción",
+            lambda s: s.dropna().iloc[0] if not s.dropna().empty else "",
+        ),
+        any_manual=("es_manual", "any"),
+        any_tag=("es_tag", "any"),
     )
 
     def classify(row):
-        if row['any_manual']:
-            return 'Manual (No Leído)'
-        if row['any_tag']:
-            return 'Leído Correctamente (TAG)'
-        return 'Otro (Violación/Exento)'
+        if row["any_manual"]:
+            return "Manual (No Leído)"
+        if row["any_tag"]:
+            return "Leído Correctamente (TAG)"
+        return "Otro (Violación/Exento)"
 
-    grouped['Estado'] = grouped.apply(classify, axis=1)
+    grouped["Estado"] = grouped.apply(classify, axis=1)
 
-    salida = grouped[['Hora', 'Vía', 'Tránsito', 'Patente', 'TAG', 'Sentido', 'Estado', 'Descripción_Original']].rename(columns={'Descripción_Original': 'Descripción Original'})
+    salida = grouped[
+        [
+            "Hora",
+            "Vía",
+            "Tránsito",
+            "Patente",
+            "TAG",
+            "Sentido",
+            "Estado",
+            "Descripción_Original",
+        ]
+    ].rename(columns={"Descripción_Original": "Descripción Original"})
 
     return salida

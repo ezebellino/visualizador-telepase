@@ -107,14 +107,14 @@ Proyecto prolijo, compartible y mantenible.
 ---
 
 ## Fase 3: Robustez operativa
-Estado: en progreso.
+Estado: completada.
 Objetivo: mejorar la confiabilidad del arranque y del uso diario.
 
 - [x] Separar scripts de "ejecutar" y "actualizar".
 - [x] Evitar `git pull` y `pip install` automaticos en cada arranque operativo.
-- [ ] Definir un flujo seguro de actualizacion manual o asistida.
+- [x] Definir un flujo seguro de actualizacion manual o asistida.
 - [x] Mejorar mensajes de error y troubleshooting para usuarios finales.
-- [ ] Revisar healthcheck y procedimientos de recuperacion.
+- [x] Revisar healthcheck y procedimientos de recuperacion.
 
 ### Criterios de aceptacion
 - La app puede iniciarse de forma predecible sin depender de red.
@@ -177,3 +177,4 @@ Esta es la secuencia recomendada para las proximas iteraciones:
 - 2026-03-18: Fase 2 ejecutada. Se actualizo `.gitignore`, se retiro el Excel versionado y se reescribieron `README.md` y `DEPLOYMENT.md` con el estado real del proyecto.
 - 2026-03-18: Fase 3 iniciada. Se separo el arranque estable (`INICIAR.bat` y `run_telepase.bat`) del flujo de actualizacion (`ACTUALIZAR_SISTEMA.bat`).
 - 2026-03-18: Se agrego un launcher oculto con `pythonw.exe` para evitar la consola visible en el uso normal y se mejoro la documentacion operativa.
+- 2026-03-18: Fase 3 completada. Se endurecio `ACTUALIZAR_SISTEMA.bat`, se agrego `VERIFICAR_SISTEMA.bat` y se documentaron chequeos de salud y recuperacion.
