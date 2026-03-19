@@ -126,7 +126,7 @@ def find_header_and_data(df_raw: pd.DataFrame) -> pd.DataFrame | None:
     return data
 
 
-def load_data(uploaded_file) -> pd.DataFrame | None:
+def load_data(uploaded_file) -> pd.DataFrame:
     file_extension = uploaded_file.name.split(".")[-1].lower()
 
     df = None
@@ -167,7 +167,7 @@ def load_data(uploaded_file) -> pd.DataFrame | None:
                 continue
 
     if df is None:
-        return None
+        raise ValueError("No se pudo leer el archivo cargado.")
 
     df = find_header_and_data(df)
     if df is None:

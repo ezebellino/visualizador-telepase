@@ -1,236 +1,266 @@
 import io
-import datetime
 
-import streamlit as st
-import pandas as pd
 import altair as alt
+import pandas as pd
+import streamlit as st
+
+from app_logic import (
+    DISPLAY_COLUMNS,
+    STATUS_READ,
+    apply_filters,
+    build_effectiveness_trend,
+    build_operational_insights,
+    build_status_by_via,
+    build_status_distribution,
+    build_summary,
+    prepare_processed_data,
+    resolve_time_bounds,
+)
 from etl import load_data, process_events
 
 st.set_page_config(page_title="Monitor de Lectura Telepase", layout="wide")
 
+st.markdown(
+    """
+    <style>
+        .hero-card {
+            padding: 1.25rem 1.5rem;
+            border: 1px solid rgba(49, 51, 63, 0.18);
+            border-radius: 18px;
+            background: linear-gradient(
+                135deg,
+                rgba(8, 78, 156, 0.10),
+                rgba(16, 185, 129, 0.10)
+            );
+            margin-bottom: 1rem;
+        }
+        .hero-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+        .hero-subtitle {
+            font-size: 1rem;
+            color: rgba(49, 51, 63, 0.8);
+        }
+        .section-note {
+            padding: 0.85rem 1rem;
+            border-radius: 14px;
+            background: rgba(8, 78, 156, 0.06);
+            border: 1px solid rgba(8, 78, 156, 0.12);
+            margin-bottom: 1rem;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
-# Cache para no recomputar si no cambia input
+
 @st.cache_data
 def compute_processed(uploaded_file):
     df_clean = load_data(uploaded_file)
     return process_events(df_clean)
 
 
-# --- Interfaz ---
-st.title("📡 Sistema de Monitoreo Telepase")
+def render_empty_state():
+    st.markdown(
+        """
+        <div class="hero-card">
+            <div class="hero-title">📡 Sistema de Monitoreo Telepase</div>
+            <div class="hero-subtitle">
+                Análisis operativo de lecturas TAG, fallos manuales y tránsito por vía.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.info(
+        "Carga un archivo CSV, XLS o XLSX para ver métricas, filtros, gráficos y exportaciones."
+    )
 
-uploaded_file = st.file_uploader("Cargar archivo", type=["csv", "xls", "xlsx"])
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Formatos soportados", "CSV / XLS / XLSX")
+    col2.metric("Resolución", "Por tránsito")
+    col3.metric("Exportación", "CSV y Excel")
 
-df_processed = pd.DataFrame()
-if uploaded_file is not None:
-    try:
-        df_processed = compute_processed(uploaded_file)
-    except Exception as e:
-        st.error(f"Error al procesar archivo: {e}")
+    with st.expander("Qué hace esta app"):
+        st.write("""
+            - Detecta la cabecera real del reporte aunque el archivo tenga ruido arriba.
+            - Agrupa eventos por tránsito para evitar duplicados funcionales.
+            - Clasifica lecturas correctas, fallos manuales y otros estados.
+            - Permite filtrar por vía, sentido, patente y rango horario.
+            """)
 
-if not df_processed.empty:
-    # --- FILTROS ---
+
+def render_processing_error(error: Exception):
+    st.error(f"No se pudo procesar el archivo: {error}")
+    with st.expander("Sugerencias para corregir el archivo"):
+        st.write("""
+            - Verifica que el archivo tenga columnas equivalentes a Hora, Vía, Tránsito y Descripción.
+            - Si es un CSV, confirma que no esté dañado o vacío.
+            - Si es un Excel exportado manualmente, intenta volver a exportarlo desde origen.
+            """)
+
+
+def render_header(df_filtrado: pd.DataFrame, filters: dict):
+    insights = build_operational_insights(df_filtrado)
+    st.markdown(
+        """
+        <div class="hero-card">
+            <div class="hero-title">📡 Sistema de Monitoreo Telepase</div>
+            <div class="hero-subtitle">
+                Seguimiento de lecturas, fallos y estados operativos sobre el archivo cargado.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f"""
+        <div class="section-note">
+            <strong>Contexto actual:</strong>
+            {len(df_filtrado)} registros visibles |
+            Vías: {", ".join(map(str, filters["vias"]))} |
+            Sentidos: {", ".join(map(str, filters["sentidos"]))} |
+            Cobertura: {insights["via_count"]} vías activas |
+            Diagnóstico: {insights["effectiveness_note"]}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_sidebar(df_processed: pd.DataFrame, uploaded_file_name: str):
     st.sidebar.header("Filtros")
+    st.sidebar.caption(f"Archivo cargado: {uploaded_file_name}")
 
     vias_disponibles = df_processed["Vía"].dropna().unique().tolist()
+    sentidos_disponibles = df_processed["Sentido"].dropna().unique().tolist()
+    min_hora, max_hora = resolve_time_bounds(df_processed)
+
     vias_seleccionadas = st.sidebar.multiselect(
-        "Selecciona la Vía a monitorear:",
+        "Selecciona la vía a monitorear",
         options=vias_disponibles,
         default=vias_disponibles,
         help="Si deseleccionas todas, no se mostrarán datos.",
     )
-
-    sentidos_disponibles = df_processed["Sentido"].dropna().unique().tolist()
     sentido_seleccionado = st.sidebar.multiselect(
-        "Selecciona el Sentido:",
+        "Selecciona el sentido",
         options=sentidos_disponibles,
         default=sentidos_disponibles,
     )
-
-    patente_filter = st.sidebar.text_input("Buscar Patente (parcial)", value="")
-
-    # Hora filtrar
-    df_processed["Hora_dt"] = pd.to_datetime(df_processed["Hora"], errors="coerce")
-    min_hora = (
-        df_processed["Hora_dt"].min().time()
-        if pd.notna(df_processed["Hora_dt"].min())
-        else datetime.time(0, 0)
-    )
-    max_hora = (
-        df_processed["Hora_dt"].max().time()
-        if pd.notna(df_processed["Hora_dt"].max())
-        else datetime.time(23, 59)
-    )
+    patente_filter = st.sidebar.text_input("Buscar patente (parcial)", value="")
 
     col_time1, col_time2 = st.sidebar.columns(2)
     start_time = col_time1.time_input("Hora inicio", min_hora)
     end_time = col_time2.time_input("Hora fin", max_hora)
 
-    # seleccion de tipo de gráfico de eficiencia
     grafico_tipo = st.sidebar.selectbox(
         "Tipo de gráfico de lectura",
         ["Barra por estado", "Pie de lectura", "Línea de efectividad"],
         index=0,
-        help="Elige cómo visualizar la lectura de antena",
+        help="Elige cómo visualizar la lectura de antena.",
     )
 
-    # aplicando filtros
-    df_filtrado = df_processed[df_processed["Vía"].isin(vias_seleccionadas)]
-    df_filtrado = df_filtrado[df_filtrado["Sentido"].isin(sentido_seleccionado)]
+    page_size = st.sidebar.selectbox("Tamaño de página", [25, 50, 100, 200], index=1)
 
-    if patente_filter:
-        df_filtrado = df_filtrado[
-            df_filtrado["Patente"]
-            .astype(str)
-            .str.contains(patente_filter.strip(), case=False, na=False)
-        ]
+    return {
+        "vias": vias_seleccionadas,
+        "sentidos": sentido_seleccionado,
+        "patente": patente_filter,
+        "start_time": start_time,
+        "end_time": end_time,
+        "grafico_tipo": grafico_tipo,
+        "page_size": page_size,
+    }
 
-    if start_time and end_time:
-        df_filtrado = df_filtrado[df_filtrado["Hora_dt"].notna()]
-        df_filtrado = df_filtrado[
-            (df_filtrado["Hora_dt"].dt.time >= start_time)
-            & (df_filtrado["Hora_dt"].dt.time <= end_time)
-        ]
 
-    if df_filtrado.empty:
-        st.warning("No hay datos para las opciones de filtro seleccionadas.")
-    else:
-        counts = df_filtrado["Estado"].value_counts()
-        total = len(df_filtrado)
-        reads = counts.get("Leído Correctamente (TAG)", 0)
-        manuals = counts.get("Manual (No Leído)", 0)
-        others = counts.get("Otro (Violación/Exento)", 0)
-        effectiveness = (reads / total * 100) if total > 0 else 0
-
-        st.divider()
-        st.markdown(
-            f"### 📊 Métricas: {', '.join(map(str, vias_seleccionadas))} | Sentido: {', '.join(map(str, sentido_seleccionado))}"
-        )
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Total Vehículos", total)
-        c2.metric("Lecturas OK", reads)
-        c3.metric("Fallo (Manual)", manuals)
-        c4.metric("Efectividad", f"{effectiveness:.1f}%")
-
-        st.divider()
-
-        # Gráfico de lectura según selección del usuario
+def build_chart(df_filtrado: pd.DataFrame, grafico_tipo: str):
+    if grafico_tipo == "Barra por estado":
         df_chart = df_filtrado.copy()
-        if grafico_tipo == "Barra por estado":
-            df_chart["Hora_agrupada"] = df_chart["Hora_dt"].dt.floor("15min")
-            chart = (
-                alt.Chart(df_chart)
-                .mark_bar()
-                .encode(
-                    x=alt.X("Hora_agrupada:T", title="Hora"),
-                    y=alt.Y("count():Q", title="Cantidad"),
-                    color=alt.Color("Estado:N", legend=alt.Legend(title="Estado")),
-                    tooltip=["Hora_agrupada:T", "count():Q", "Estado:N"],
-                )
-                .properties(height=320)
+        df_chart["Hora_agrupada"] = df_chart["Hora_dt"].dt.floor("15min")
+        return (
+            alt.Chart(df_chart)
+            .mark_bar()
+            .encode(
+                x=alt.X("Hora_agrupada:T", title="Hora"),
+                y=alt.Y("count():Q", title="Cantidad"),
+                color=alt.Color("Estado:N", legend=alt.Legend(title="Estado")),
+                tooltip=["Hora_agrupada:T", "count():Q", "Estado:N"],
             )
-
-        elif grafico_tipo == "Pie de lectura":
-            status_counts = df_chart["Estado"].value_counts().reset_index()
-            status_counts.columns = ["Estado", "Cantidad"]
-            chart = (
-                alt.Chart(status_counts)
-                .mark_arc(innerRadius=50)
-                .encode(
-                    theta=alt.Theta(field="Cantidad", type="quantitative"),
-                    color=alt.Color(
-                        field="Estado",
-                        type="nominal",
-                        legend=alt.Legend(title="Estado"),
-                    ),
-                    tooltip=["Estado", "Cantidad"],
-                )
-                .properties(height=360)
-            )
-
-        else:  # Línea de efectividad
-            df_trend = df_chart.copy()
-            df_trend["Hora_agrupada"] = df_trend["Hora_dt"].dt.floor("15min")
-            trend = (
-                df_trend.groupby("Hora_agrupada")
-                .agg(
-                    total=("Tránsito", "count"),
-                    leidos=(
-                        "Estado",
-                        lambda s: (s == "Leído Correctamente (TAG)").sum(),
-                    ),
-                )
-                .reset_index()
-            )
-            trend["Efectividad"] = trend["leidos"] / trend["total"] * 100
-            chart = (
-                alt.Chart(trend)
-                .mark_line(point=True)
-                .encode(
-                    x=alt.X("Hora_agrupada:T", title="Hora"),
-                    y=alt.Y("Efectividad:Q", title="Efectividad (%)"),
-                    tooltip=[
-                        "Hora_agrupada:T",
-                        alt.Tooltip("Efectividad:Q", format=".1f"),
-                    ],
-                )
-                .properties(height=360)
-            )
-
-        st.altair_chart(chart, use_container_width=True)
-
-        st.divider()
-
-        output_cols = [
-            "Hora",
-            "Vía",
-            "Patente",
-            "TAG",
-            "Sentido",
-            "Tránsito",
-            "Estado",
-            "Descripción Original",
-        ]
-        st.dataframe(df_filtrado[output_cols], width="stretch", height=420)
-
-        csv_data = df_filtrado[output_cols].to_csv(index=False).encode("utf-8")
-        st.download_button(
-            "⬇️ Exportar CSV",
-            data=csv_data,
-            file_name="telepase_filtrado.csv",
-            mime="text/csv",
+            .properties(height=320)
         )
 
-        try:
-            buffer = io.BytesIO()
-            with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-                df_filtrado[output_cols].to_excel(
-                    writer, index=False, sheet_name="Telepase"
-                )
-            st.download_button(
-                "⬇️ Exportar Excel",
-                data=buffer.getvalue(),
-                file_name="telepase_filtrado.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    if grafico_tipo == "Pie de lectura":
+        status_counts = build_status_distribution(df_filtrado)
+        return (
+            alt.Chart(status_counts)
+            .mark_arc(innerRadius=55)
+            .encode(
+                theta=alt.Theta(field="Cantidad", type="quantitative"),
+                color=alt.Color(
+                    field="Estado", type="nominal", legend=alt.Legend(title="Estado")
+                ),
+                tooltip=["Estado", "Cantidad"],
             )
-        except Exception as e:
-            st.warning(f"No se pudo generar Excel: {e}")
-
-        # Pivot de estados por vía
-        estado_via = (
-            df_filtrado.groupby(["Vía", "Estado"]).size().reset_index(name="Cantidad")
+            .properties(height=360)
         )
-        pivot = estado_via.pivot(
-            index="Vía", columns="Estado", values="Cantidad"
-        ).fillna(0)
 
-        st.markdown("### 📌 Estado por Vía")
-        st.dataframe(pivot.astype(int), width="stretch", height=240)
+    trend = build_effectiveness_trend(df_filtrado)
+    return (
+        alt.Chart(trend)
+        .mark_line(point=True)
+        .encode(
+            x=alt.X("Hora_agrupada:T", title="Hora"),
+            y=alt.Y("Efectividad:Q", title="Efectividad (%)"),
+            tooltip=[
+                "Hora_agrupada:T",
+                alt.Tooltip("Efectividad:Q", format=".1f"),
+            ],
+        )
+        .properties(height=360)
+    )
 
-        # Heatmap
-        df_heat = estado_via.copy()
+
+def render_summary(df_filtrado: pd.DataFrame, grafico_tipo: str):
+    summary = build_summary(df_filtrado)
+    insights = build_operational_insights(df_filtrado)
+    st.markdown("### Resumen operativo")
+    st.caption(
+        "Vista ejecutiva para validar volumen, calidad de lectura y distribución de estados."
+    )
+
+    c1, c2, c3, c4, c5 = st.columns(5)
+    c1.metric("Total vehículos", summary["total"])
+    c2.metric("Lecturas OK", summary["reads"])
+    c3.metric("Manual", summary["manuals"])
+    c4.metric("Otros", summary["others"])
+    c5.metric("Efectividad", f"{summary['effectiveness']:.1f}%")
+
+    st.markdown(
+        f"""
+        <div class="section-note">
+            <strong>Lectura rápida:</strong>
+            {insights["effectiveness_note"]} |
+            Estado predominante: {insights["predominant_state"]}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.altair_chart(build_chart(df_filtrado, grafico_tipo), use_container_width=True)
+
+    estado_via, pivot = build_status_by_via(df_filtrado)
+    col_left, col_right = st.columns([1, 1.2])
+
+    with col_left:
+        st.markdown("#### Estado por vía")
+        st.dataframe(pivot.astype(int), width="stretch", height=260)
+
+    with col_right:
+        st.markdown("#### Heatmap por vía y estado")
         heatmap = (
-            alt.Chart(df_heat)
+            alt.Chart(estado_via)
             .mark_rect()
             .encode(
                 x=alt.X("Estado:N", title="Estado"),
@@ -244,21 +274,100 @@ if not df_processed.empty:
             )
             .properties(height=320)
         )
-
         st.altair_chart(heatmap, use_container_width=True)
 
-        # Paginación
-        page_size = st.sidebar.selectbox(
-            "Tamaño de página", [25, 50, 100, 200], index=1
-        )
-        num_pages = (len(df_filtrado) - 1) // page_size + 1
-        page = st.sidebar.number_input(
-            "Página", min_value=1, max_value=num_pages, value=1, step=1
-        )
-        start = (page - 1) * page_size
-        end = start + page_size
 
-        st.markdown(f"### 🗂️ Tabla paginada (Página {page}/{num_pages})")
-        st.dataframe(
-            df_filtrado[output_cols].iloc[start:end], width="stretch", height=350
+def render_detail(df_filtrado: pd.DataFrame, page_size: int):
+    st.markdown("### Exportación y detalle")
+    st.caption(
+        "Descarga el subconjunto filtrado o revisa el detalle paginado para auditoría manual."
+    )
+
+    export_col1, export_col2 = st.columns(2)
+    csv_data = df_filtrado[DISPLAY_COLUMNS].to_csv(index=False).encode("utf-8")
+    export_col1.download_button(
+        "⬇️ Exportar CSV",
+        data=csv_data,
+        file_name="telepase_filtrado.csv",
+        mime="text/csv",
+        use_container_width=True,
+    )
+
+    try:
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+            df_filtrado[DISPLAY_COLUMNS].to_excel(
+                writer, index=False, sheet_name="Telepase"
+            )
+        export_col2.download_button(
+            "⬇️ Exportar Excel",
+            data=buffer.getvalue(),
+            file_name="telepase_filtrado.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
         )
+    except Exception as error:
+        st.warning(f"No se pudo generar Excel: {error}")
+
+    num_pages = max((len(df_filtrado) - 1) // page_size + 1, 1)
+    page = st.number_input("Página", min_value=1, max_value=num_pages, value=1, step=1)
+    start = (page - 1) * page_size
+    end = start + page_size
+
+    st.dataframe(
+        df_filtrado[DISPLAY_COLUMNS].iloc[start:end], width="stretch", height=420
+    )
+
+
+def main():
+    uploaded_file = st.file_uploader("Cargar archivo", type=["csv", "xls", "xlsx"])
+
+    if uploaded_file is None:
+        render_empty_state()
+        return
+
+    try:
+        df_processed = prepare_processed_data(compute_processed(uploaded_file))
+    except Exception as error:
+        render_processing_error(error)
+        return
+
+    if df_processed.empty:
+        st.warning("El archivo se pudo leer, pero no generó registros utilizables.")
+        return
+
+    filters = render_sidebar(df_processed, uploaded_file.name)
+
+    try:
+        df_filtrado = apply_filters(
+            df_processed,
+            filters["vias"],
+            filters["sentidos"],
+            filters["patente"],
+            filters["start_time"],
+            filters["end_time"],
+        )
+    except ValueError as error:
+        st.warning(str(error))
+        return
+
+    if df_filtrado.empty:
+        st.warning("No hay datos para las opciones de filtro seleccionadas.")
+        return
+
+    render_header(df_filtrado, filters)
+
+    if STATUS_READ not in df_filtrado["Estado"].unique():
+        st.info(
+            "No hay lecturas TAG correctas en el subconjunto actual. "
+            "Revisa filtros o exporta el detalle para inspección."
+        )
+
+    tab_summary, tab_detail = st.tabs(["Resumen", "Detalle"])
+    with tab_summary:
+        render_summary(df_filtrado, filters["grafico_tipo"])
+    with tab_detail:
+        render_detail(df_filtrado, filters["page_size"])
+
+
+main()
