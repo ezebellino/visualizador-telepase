@@ -62,8 +62,14 @@ docker run --rm -p 8501:8501 visualizador-telepase
 
 ## Scripts disponibles
 - `INICIAR.bat`: inicio simple para usuarios finales.
-- `run_telepase.bat`: inicio operativo con actualizacion automatica previa.
+- `run_telepase.bat`: inicio operativo estable en modo headless.
+- `ACTUALIZAR_SISTEMA.bat`: actualiza codigo y dependencias de forma explicita.
 - `CREAR_ACCESO_DIRECTO.bat`: crea un acceso directo de Windows con `antena.ico`.
+
+## Flujo operativo recomendado
+- Para usar la aplicacion en forma normal: `INICIAR.bat`.
+- Para ejecutar la app como servicio local o arranque automatico: `run_telepase.bat`.
+- Para actualizar el sistema de manera manual y controlada: `ACTUALIZAR_SISTEMA.bat`.
 
 ## Icono del lanzador en Windows
 Un archivo `.bat` no puede llevar un icono embebido propio en el Explorador de Windows. Para resolverlo de forma profesional, el proyecto incluye `CREAR_ACCESO_DIRECTO.bat`, que genera un acceso directo `.lnk` en el escritorio usando `antena.ico` y apuntando a `INICIAR.bat`.

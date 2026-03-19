@@ -42,6 +42,11 @@ docker run --rm -p 8501:8501 visualizador-telepase
 - Lanza Streamlit usando el Python portable del proyecto.
 - No instala dependencias ni actualiza el repositorio.
 
+### `ACTUALIZAR_SISTEMA.bat`
+- Ejecuta `git pull --ff-only` si el proyecto es un repositorio Git.
+- Instala dependencias desde `requirements.txt`.
+- Se usa solo cuando se quiere actualizar el sistema de forma explicita.
+
 ### `CREAR_ACCESO_DIRECTO.bat`
 - Crea un acceso directo `.lnk` en el escritorio.
 - Usa `antena.ico` como icono visible en Windows.
@@ -49,12 +54,13 @@ docker run --rm -p 8501:8501 visualizador-telepase
 
 ### `run_telepase.bat`
 - Pensado para una operacion mas automatizada.
-- Si existe `.git`, intenta hacer `git pull --ff-only`.
-- Luego ejecuta `pip install -r requirements.txt`.
-- Finalmente inicia Streamlit en modo headless en el puerto `8501`.
+- Inicia Streamlit en modo headless en el puerto `8501`.
+- No modifica codigo ni dependencias durante el arranque.
 
-Nota:
-Este flujo todavia existe porque forma parte de la operacion actual, pero esta marcado para revision en la Fase 3 del plan de mejora.
+## Flujo operativo recomendado
+- Usar `INICIAR.bat` para usuarios finales.
+- Usar `run_telepase.bat` para tareas de inicio automatico o modo servicio.
+- Usar `ACTUALIZAR_SISTEMA.bat` cuando se quiera actualizar el sistema.
 
 ## Healthcheck del contenedor
 El `Dockerfile` implementa un `HEALTHCHECK` con `urllib.request` contra `http://localhost:8501`.

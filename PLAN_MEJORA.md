@@ -107,10 +107,11 @@ Proyecto prolijo, compartible y mantenible.
 ---
 
 ## Fase 3: Robustez operativa
+Estado: en progreso.
 Objetivo: mejorar la confiabilidad del arranque y del uso diario.
 
-- [ ] Separar scripts de "ejecutar" y "actualizar".
-- [ ] Evitar `git pull` y `pip install` automaticos en cada arranque operativo.
+- [x] Separar scripts de "ejecutar" y "actualizar".
+- [x] Evitar `git pull` y `pip install` automaticos en cada arranque operativo.
 - [ ] Definir un flujo seguro de actualizacion manual o asistida.
 - [ ] Mejorar mensajes de error y troubleshooting para usuarios finales.
 - [ ] Revisar healthcheck y procedimientos de recuperacion.
@@ -174,3 +175,4 @@ Esta es la secuencia recomendada para las proximas iteraciones:
 - 2026-03-18: Fase 0 ejecutada a nivel ETL. Se elimino la divergencia entre `etl.py` y `src/etl.py`; tests del proyecto verificados en `tests/`.
 - 2026-03-18: Fase 1 ejecutada. Se agrego `pyproject.toml`, `pytest` quedo acotado a `tests/` y el workflow de CI ahora instala dependencias runtime y dev.
 - 2026-03-18: Fase 2 ejecutada. Se actualizo `.gitignore`, se retiro el Excel versionado y se reescribieron `README.md` y `DEPLOYMENT.md` con el estado real del proyecto.
+- 2026-03-18: Fase 3 iniciada. Se separo el arranque estable (`INICIAR.bat` y `run_telepase.bat`) del flujo de actualizacion (`ACTUALIZAR_SISTEMA.bat`).
