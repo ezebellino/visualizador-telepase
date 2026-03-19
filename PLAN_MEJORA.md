@@ -113,7 +113,7 @@ Objetivo: mejorar la confiabilidad del arranque y del uso diario.
 - [x] Separar scripts de "ejecutar" y "actualizar".
 - [x] Evitar `git pull` y `pip install` automaticos en cada arranque operativo.
 - [ ] Definir un flujo seguro de actualizacion manual o asistida.
-- [ ] Mejorar mensajes de error y troubleshooting para usuarios finales.
+- [x] Mejorar mensajes de error y troubleshooting para usuarios finales.
 - [ ] Revisar healthcheck y procedimientos de recuperacion.
 
 ### Criterios de aceptacion
@@ -176,3 +176,4 @@ Esta es la secuencia recomendada para las proximas iteraciones:
 - 2026-03-18: Fase 1 ejecutada. Se agrego `pyproject.toml`, `pytest` quedo acotado a `tests/` y el workflow de CI ahora instala dependencias runtime y dev.
 - 2026-03-18: Fase 2 ejecutada. Se actualizo `.gitignore`, se retiro el Excel versionado y se reescribieron `README.md` y `DEPLOYMENT.md` con el estado real del proyecto.
 - 2026-03-18: Fase 3 iniciada. Se separo el arranque estable (`INICIAR.bat` y `run_telepase.bat`) del flujo de actualizacion (`ACTUALIZAR_SISTEMA.bat`).
+- 2026-03-18: Se agrego un launcher oculto con `pythonw.exe` para evitar la consola visible en el uso normal y se mejoro la documentacion operativa.

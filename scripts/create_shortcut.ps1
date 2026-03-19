@@ -8,7 +8,7 @@ param(
 $projectRoot = Split-Path -Parent $PSScriptRoot
 
 if ([string]::IsNullOrWhiteSpace($TargetPath)) {
-    $TargetPath = Join-Path $projectRoot "INICIAR.bat"
+    $TargetPath = Join-Path $projectRoot "scripts\launch_app_hidden.vbs"
 }
 
 if ([string]::IsNullOrWhiteSpace($ShortcutPath)) {

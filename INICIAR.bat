@@ -1,32 +1,26 @@
 @echo off
-title Visualizador Telepase - Iniciando...
-echo ---------------------------------------------------
-echo      INICIANDO SISTEMA DE GESTION DE TELEPASE
-echo ---------------------------------------------------
-echo.
+title Visualizador Telepase - Inicio rapido
+cd /d "%~dp0"
 
-:: 1. Definimos donde estamos parados (La carpeta raiz)
 set "PROJECT_ROOT=%~dp0"
+set "PYTHONW_EXE=%PROJECT_ROOT%Sistema_Python\pythonw.exe"
+set "LAUNCHER_SCRIPT=%PROJECT_ROOT%scripts\launch_app_hidden.vbs"
 
-:: 2. Apuntamos al ejecutable de Python dentro de su nueva carpeta
-set "PYTHON_EXE=%PROJECT_ROOT%Sistema_Python\python.exe"
-
-:: 3. Verificamos que Python exista
-if not exist "%PYTHON_EXE%" (
-    echo ERROR CRITICO: No se encuentra Python.
-    echo Buscando en: "%PYTHON_EXE%"
+if not exist "%PYTHONW_EXE%" (
+    echo ERROR CRITICO: No se encuentra pythonw.exe.
+    echo Buscando en: "%PYTHONW_EXE%"
     echo.
-    echo Asegurate de que la carpeta 'Sistema_Python' existe y tiene 'python.exe'.
+    echo Sugerencia: verificar que la carpeta Sistema_Python este completa.
     pause
-    exit
+    exit /b 1
 )
 
-echo Iniciando servidor...
-echo Se abrira tu navegador en unos segundos...
-echo.
+if not exist "%LAUNCHER_SCRIPT%" (
+    echo ERROR CRITICO: No se encuentra el launcher oculto.
+    echo Buscando en: "%LAUNCHER_SCRIPT%"
+    pause
+    exit /b 1
+)
 
-:: 4. Ejecutamos la App
-:: Quitamos 'headless=true' y ponemos 'headless=false' para obligar a abrir ventana
-"%PYTHON_EXE%" -m streamlit run "%PROJECT_ROOT%app.py" --global.developmentMode=false --server.headless=false
-
-pause
+start "" wscript.exe //nologo "%LAUNCHER_SCRIPT%"
+exit /b 0

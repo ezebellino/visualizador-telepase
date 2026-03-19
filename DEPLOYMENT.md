@@ -39,8 +39,9 @@ docker run --rm -p 8501:8501 visualizador-telepase
 
 ### `INICIAR.bat`
 - Pensado para usuarios finales.
-- Lanza Streamlit usando el Python portable del proyecto.
+- Ejecuta un launcher oculto basado en `pythonw.exe`.
 - No instala dependencias ni actualiza el repositorio.
+- Evita dejar la consola abierta durante el uso normal.
 
 ### `ACTUALIZAR_SISTEMA.bat`
 - Ejecuta `git pull --ff-only` si el proyecto es un repositorio Git.
@@ -50,7 +51,7 @@ docker run --rm -p 8501:8501 visualizador-telepase
 ### `CREAR_ACCESO_DIRECTO.bat`
 - Crea un acceso directo `.lnk` en el escritorio.
 - Usa `antena.ico` como icono visible en Windows.
-- Apunta a `INICIAR.bat`, que sigue siendo el lanzador real.
+- Apunta al launcher oculto para evitar consola visible.
 
 ### `run_telepase.bat`
 - Pensado para una operacion mas automatizada.
@@ -61,6 +62,7 @@ docker run --rm -p 8501:8501 visualizador-telepase
 - Usar `INICIAR.bat` para usuarios finales.
 - Usar `run_telepase.bat` para tareas de inicio automatico o modo servicio.
 - Usar `ACTUALIZAR_SISTEMA.bat` cuando se quiera actualizar el sistema.
+- Usar `CREAR_ACCESO_DIRECTO.bat` si se quiere un acceso directo con icono y sin consola visible.
 
 ## Healthcheck del contenedor
 El `Dockerfile` implementa un `HEALTHCHECK` con `urllib.request` contra `http://localhost:8501`.
