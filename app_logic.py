@@ -1,4 +1,5 @@
 import datetime
+import socket
 
 import pandas as pd
 
@@ -7,22 +8,45 @@ DISPLAY_COLUMNS = [
     "Vía",
     "Patente",
     "TAG",
+    "Forma de Pago",
+    "Categoria",
     "Sentido",
     "Tránsito",
     "Estado",
+    "Violacion Via Abierta",
     "Descripción Original",
 ]
 
-STATUS_READ = "Leído Correctamente (TAG)"
-STATUS_MANUAL = "Manual (No Leído)"
-STATUS_OTHER = "Otro (Violación/Exento)"
+STATUS_READ = "Leido Correctamente (TAG)"
+STATUS_MANUAL = "Manual (No Leido)"
+STATUS_OTHER = "Otro (Violacion/Exento)"
 
 
 def prepare_processed_data(df: pd.DataFrame) -> pd.DataFrame:
     prepared = df.copy()
-    prepared["Hora_dt"] = pd.to_datetime(
-        prepared["Hora"], errors="coerce", format="mixed"
+    prepared["Hora_dt"] = pd.to_datetime(prepared["Hora"], errors="coerce", format="mixed")
+    prepared["Vía"] = prepared["Vía"].astype(str).str.strip()
+    prepared["Sentido"] = prepared["Sentido"].astype(str).str.strip()
+    prepared["Violacion Via Abierta"] = prepared.get("Violacion Via Abierta", False)
+    if not isinstance(prepared["Violacion Via Abierta"], pd.Series):
+        prepared["Violacion Via Abierta"] = pd.Series(
+            [prepared["Violacion Via Abierta"]] * len(prepared), index=prepared.index
+        )
+    prepared["Violacion Via Abierta"] = (
+        prepared["Violacion Via Abierta"].fillna(False).astype(bool)
     )
+    prepared["Forma de Pago"] = prepared.get("Forma de Pago", "Sin dato")
+    if not isinstance(prepared["Forma de Pago"], pd.Series):
+        prepared["Forma de Pago"] = pd.Series(
+            [prepared["Forma de Pago"]] * len(prepared), index=prepared.index
+        )
+    prepared["Forma de Pago"] = prepared["Forma de Pago"].fillna("Sin dato").astype(str)
+    prepared["Categoria"] = prepared.get("Categoria", "N/A")
+    if not isinstance(prepared["Categoria"], pd.Series):
+        prepared["Categoria"] = pd.Series(
+            [prepared["Categoria"]] * len(prepared), index=prepared.index
+        )
+    prepared["Categoria"] = prepared["Categoria"].fillna("N/A").astype(str)
     return prepared
 
 
@@ -43,7 +67,7 @@ def validate_filter_inputs(
     end_time: datetime.time,
 ) -> None:
     if not vias:
-        raise ValueError("Debes seleccionar al menos una vía para analizar.")
+        raise ValueError("Debes seleccionar al menos una via para analizar.")
     if not sentidos:
         raise ValueError("Debes seleccionar al menos un sentido para analizar.")
     if start_time > end_time:
@@ -138,3 +162,89 @@ def build_status_by_via(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     estado_via = df.groupby(["Vía", "Estado"]).size().reset_index(name="Cantidad")
     pivot = estado_via.pivot(index="Vía", columns="Estado", values="Cantidad").fillna(0)
     return estado_via, pivot
+
+
+def build_direction_summary(df: pd.DataFrame) -> dict[str, int]:
+    counts = df["Sentido"].value_counts()
+    asc = int(counts.get("Asc", 0))
+    desc = int(counts.get("Desc", 0))
+    return {
+        "asc": asc,
+        "desc": desc,
+        "saldo_pendiente": max(asc - desc, 0),
+    }
+
+
+def build_payment_summary(df: pd.DataFrame) -> dict[str, int]:
+    counts = df["Forma de Pago"].fillna("Sin dato").value_counts()
+    return {
+        "tag": int(counts.get("Tag", 0)),
+        "efectivo": int(counts.get("Efectivo", 0)),
+        "sin_dato": int(counts.get("Sin dato", 0)),
+    }
+
+
+def build_payment_insights(df: pd.DataFrame) -> dict[str, float | int]:
+    summary = build_payment_summary(df)
+    known_total = summary["tag"] + summary["efectivo"]
+    overall_total = known_total + summary["sin_dato"]
+
+    tag_share = (summary["tag"] / known_total * 100) if known_total else 0.0
+    efectivo_share = (summary["efectivo"] / known_total * 100) if known_total else 0.0
+    unknown_share = (summary["sin_dato"] / overall_total * 100) if overall_total else 0.0
+
+    return {
+        "tag": summary["tag"],
+        "efectivo": summary["efectivo"],
+        "sin_dato": summary["sin_dato"],
+        "known_total": known_total,
+        "overall_total": overall_total,
+        "tag_share": tag_share,
+        "efectivo_share": efectivo_share,
+        "unknown_share": unknown_share,
+    }
+
+
+def build_payment_distribution(df: pd.DataFrame) -> pd.DataFrame:
+    payment_counts = df["Forma de Pago"].fillna("Sin dato").value_counts().reset_index()
+    payment_counts.columns = ["Forma de Pago", "Cantidad"]
+    return payment_counts
+
+
+def build_category_distribution(df: pd.DataFrame) -> pd.DataFrame:
+    category_counts = df["Categoria"].fillna("N/A").astype(str).value_counts().reset_index()
+    category_counts.columns = ["Categoria", "Cantidad"]
+    category_counts["Categoria_orden"] = pd.to_numeric(
+        category_counts["Categoria"], errors="coerce"
+    )
+    return category_counts.sort_values(
+        by=["Categoria_orden", "Categoria"], na_position="last"
+    ).drop(columns=["Categoria_orden"])
+
+
+def build_open_violation_summary(df: pd.DataFrame) -> tuple[int, pd.DataFrame]:
+    violations = df[df["Violacion Via Abierta"]]
+    by_via = violations.groupby("Vía").size().reset_index(name="Cantidad")
+    by_via = by_via.sort_values("Cantidad", ascending=False)
+    return int(len(violations)), by_via
+
+
+def build_network_access_urls(port: int = 8501) -> dict[str, list[str] | str]:
+    local_url = f"http://127.0.0.1:{port}"
+    ip_candidates: set[str] = set()
+
+    try:
+        hostname_ips = socket.gethostbyname_ex(socket.gethostname())[2]
+        ip_candidates.update(ip for ip in hostname_ips if not ip.startswith("127."))
+    except OSError:
+        pass
+
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.connect(("8.8.8.8", 80))
+            ip_candidates.add(sock.getsockname()[0])
+    except OSError:
+        pass
+
+    network_urls = [f"http://{ip}:{port}" for ip in sorted(ip_candidates)]
+    return {"local_url": local_url, "network_urls": network_urls}

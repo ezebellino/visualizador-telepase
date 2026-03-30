@@ -22,7 +22,7 @@ End If
 
 command = """" & pythonwPath & """" _
     & " -m streamlit run " & """" & appPath & """" _
-    & " --server.headless=true --server.port=8501 --server.address=127.0.0.1"
+    & " --server.headless=true --server.port=8501 --server.address=0.0.0.0"
 
 shell.CurrentDirectory = projectRoot
 shell.Run command, 0, False

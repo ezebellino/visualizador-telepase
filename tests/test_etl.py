@@ -1,10 +1,10 @@
-import sys
 import pathlib
+import sys
+from io import StringIO
 
 import pandas as pd
 import pytest
 
-# Ensure project root is in sys.path for tests to import local modules
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -30,7 +30,7 @@ def test_extract_patente_missing():
 
 def test_extract_tag_found():
     assert extract_tag("Tiene Tag: 12345") == "12345"
-    assert extract_tag("Número: ABC987") == "ABC987"
+    assert extract_tag("Numero: ABC987") == "ABC987"
 
 
 def test_extract_tag_missing():
@@ -41,120 +41,124 @@ def test_extract_tag_missing():
 def test_find_header_and_data():
     data = [
         ["texto", "irrelevante", "x"],
-        ["Hora", "Vía", "Descripción"],
-        ["12:00", "Norte", "Tránsito con TAG"],
+        ["Hora", "Via", "Descripcion"],
+        ["12:00", "Norte", "Transito con TAG"],
     ]
     df_raw = pd.DataFrame(data)
     df_result = find_header_and_data(df_raw)
     assert df_result is not None
     assert "Hora" in df_result.columns
-    assert df_result.iloc[0]["Vía"] == "Norte"
+    assert df_result.iloc[0]["Via"] == "Norte"
 
 
 def test_process_events_classification():
     rows = [
         {
             "Hora": "08:00",
-            "Vía": "Norte",
-            "Tránsito": 1,
-            "Descripción": "TAG OK",
-            "Observación": "Patente: ABC123 Tag: TAG001",
+            "Via": "Norte",
+            "Transito": 1,
+            "Descripcion": "TAG OK",
+            "Observacion": "Patente: ABC123 Tag: TAG001",
+            "FPago": "Tag",
+            "Man": 1,
         },
         {
             "Hora": "08:10",
-            "Vía": "Norte",
-            "Tránsito": 2,
-            "Descripción": "Tránsito con Patente Ingresada Manualmente",
-            "Observación": "Patente: XYZ987",
+            "Via": "Norte",
+            "Transito": 2,
+            "Descripcion": "Transito con Patente Ingresada Manualmente",
+            "Observacion": "Patente: XYZ987 Tag: TAG999",
+        },
+        {
+            "Hora": "08:10",
+            "Via": "Norte",
+            "Transito": 2,
+            "Descripcion": "Transito con TAG Pospago Categoria 1",
+            "Observacion": "Patente: XYZ987 Numero: TAG999",
+            "FPago": "Tag",
+            "Man": 1,
         },
         {
             "Hora": "08:15",
-            "Vía": "Norte",
-            "Tránsito": 3,
-            "Descripción": "Violación",
-            "Observación": "",
+            "Via": "Norte",
+            "Transito": 3,
+            "Descripcion": "Violacion por Via Abierta",
+            "Observacion": "",
         },
     ]
-    df_input = pd.DataFrame(rows)
+    df_output = process_events(pd.DataFrame(rows))
 
-    df_output = process_events(df_input)
     assert len(df_output) == 3
-    assert "Leído Correctamente (TAG)" in df_output["Estado"].values
-    assert "Manual (No Leído)" in df_output["Estado"].values
-    assert "Otro (Violación/Exento)" in df_output["Estado"].values
+    assert "Leido Correctamente (TAG)" in df_output["Estado"].values
+    assert "Manual (No Leido)" in df_output["Estado"].values
+    assert "Otro (Violacion/Exento)" in df_output["Estado"].values
 
 
 def test_process_events_group_priority_manual():
     rows = [
         {
             "Hora": "08:00",
-            "Vía": "Norte",
-            "Tránsito": 5,
-            "Descripción": "TAG OK",
-            "Observación": "Patente: CDE456 Tag: TAG789",
+            "Via": "Norte",
+            "Transito": 5,
+            "Descripcion": "TAG OK",
+            "Observacion": "Patente: CDE456 Tag: TAG789",
+            "FPago": "Tag",
         },
         {
             "Hora": "08:01",
-            "Vía": "Norte",
-            "Tránsito": 5,
-            "Descripción": "Tránsito con Patente Ingresada Manualmente",
-            "Observación": "Patente: CDE456",
+            "Via": "Norte",
+            "Transito": 5,
+            "Descripcion": "Transito con Patente Ingresada Manualmente",
+            "Observacion": "Patente: CDE456",
         },
     ]
-    df_input = pd.DataFrame(rows)
-
-    df_output = process_events(df_input)
+    df_output = process_events(pd.DataFrame(rows))
     assert len(df_output) == 1
-    assert df_output.loc[0, "Estado"] == "Manual (No Leído)"
+    assert df_output.loc[0, "Estado"] == "Manual (No Leido)"
 
 
 def test_validate_columns_raises():
-    data = [{"Hora": "08:00", "Tránsito": 1, "Descripción": "TAG OK"}]
-    df = pd.DataFrame(data)
+    data = [{"Hora": "08:00", "Transito": 1, "Descripcion": "TAG OK"}]
     with pytest.raises(ValueError, match="Faltan columnas requeridas"):
-        process_events(df)
+        process_events(pd.DataFrame(data))
 
 
 def test_load_data_detects_semicolon_csv():
-    from io import StringIO
-
-    csv_data = "Hora;Vía;Tránsito;Descripción\n08:00;Norte;1;TAG OK\n"
+    csv_data = "Hora;Via;Transito;Descripcion\n08:00;Norte;1;TAG OK\n"
     dummy = StringIO(csv_data)
     dummy.name = "data.csv"
 
     df = load_data(dummy)
-    assert df is not None
     assert "Hora" in df.columns
-    assert df.iloc[0]["Vía"] == "Norte"
+    assert df.iloc[0]["Via"] == "Norte"
 
 
-def test_process_events_inherit_transito():
+def test_process_events_inherit_transito_from_previous_same_via():
     rows = [
         {
             "Hora": "08:00",
-            "Vía": "Norte",
-            "Tránsito": 1,
-            "Descripción": "TAG OK",
-            "Observación": "Patente: ABC123 Tag: TAG001",
+            "Via": "Norte",
+            "Transito": 1,
+            "Descripcion": "TAG OK",
+            "Observacion": "Patente: ABC123 Tag: TAG001",
+            "FPago": "Tag",
         },
         {
             "Hora": "08:01",
-            "Vía": "Norte",
-            "Tránsito": None,
-            "Descripción": "Tarjeta leída",
-            "Observación": "",
+            "Via": "Norte",
+            "Transito": None,
+            "Descripcion": "Tarjeta leida",
+            "Observacion": "",
         },
         {
             "Hora": "08:02",
-            "Vía": "Norte",
-            "Tránsito": 2,
-            "Descripción": "Otra entrada",
-            "Observación": "Patente: XYZ999",
+            "Via": "Sur",
+            "Transito": 2,
+            "Descripcion": "Otra entrada",
+            "Observacion": "Patente: XYZ999",
         },
     ]
-    df_input = pd.DataFrame(rows)
-
-    df_output = process_events(df_input)
+    df_output = process_events(pd.DataFrame(rows))
     assert len(df_output) == 2
     assert (df_output["Tránsito"] == 1).any()
     assert (df_output["Tránsito"] == 2).any()
@@ -164,24 +168,24 @@ def test_process_events_infer_sentido_from_via():
     rows = [
         {
             "Hora": "08:00",
-            "Vía": "11",
-            "Tránsito": 1,
-            "Descripción": "TAG OK",
-            "Observación": "Patente: ABC123 Tag: TAG001",
+            "Via": "11",
+            "Transito": 1,
+            "Descripcion": "TAG OK",
+            "Observacion": "Patente: ABC123 Tag: TAG001",
             "Sentido": "N/A",
+            "FPago": "Tag",
         },
         {
             "Hora": "08:02",
-            "Vía": "51",
-            "Tránsito": 2,
-            "Descripción": "TAG OK",
-            "Observación": "Patente: XYZ999",
+            "Via": "51",
+            "Transito": 2,
+            "Descripcion": "TAG OK",
+            "Observacion": "Patente: XYZ999",
             "Sentido": "",
+            "FPago": "Tag",
         },
     ]
-    df_input = pd.DataFrame(rows)
-
-    df_output = process_events(df_input)
+    df_output = process_events(pd.DataFrame(rows))
     assert df_output.loc[df_output["Tránsito"] == 1, "Sentido"].iloc[0] == "Asc"
     assert df_output.loc[df_output["Tránsito"] == 2, "Sentido"].iloc[0] == "Desc"
 
@@ -190,23 +194,112 @@ def test_process_events_sentido_normalizado():
     rows = [
         {
             "Hora": "09:00",
-            "Vía": "7",
-            "Tránsito": 3,
-            "Descripción": "TAG OK",
-            "Observación": "",
+            "Via": "7",
+            "Transito": 3,
+            "Descripcion": "TAG OK",
+            "Observacion": "",
             "Sentido": "Ascendente",
+            "FPago": "Tag",
         },
         {
             "Hora": "09:02",
-            "Vía": "51",
-            "Tránsito": 4,
-            "Descripción": "TAG OK",
-            "Observación": "",
+            "Via": "51",
+            "Transito": 4,
+            "Descripcion": "TAG OK",
+            "Observacion": "",
             "Sentido": "Descending",
+            "FPago": "Tag",
         },
     ]
-    df_input = pd.DataFrame(rows)
-
-    df_output = process_events(df_input)
+    df_output = process_events(pd.DataFrame(rows))
     assert df_output.loc[df_output["Tránsito"] == 3, "Sentido"].iloc[0] == "Asc"
     assert df_output.loc[df_output["Tránsito"] == 4, "Sentido"].iloc[0] == "Desc"
+
+
+def test_process_events_manual_row_links_to_next_transit_and_keeps_payment_category():
+    rows = [
+        {
+            "Hora": "2026-03-30 00:00:40",
+            "Via": "10",
+            "Transito": None,
+            "Descripcion": "Transito con Patente Ingresada Manualmente",
+            "Sentido": "Asc.",
+            "Observacion": "Patente: AE454PV Tag: SI9099453463",
+        },
+        {
+            "Hora": "2026-03-30 00:00:40",
+            "Via": "10",
+            "Transito": 440075,
+            "Descripcion": "Transito con TAG Pospago Categoria 1",
+            "Sentido": "Asc.",
+            "Observacion": "Patente: AE454PV Numero: SI9099453463 AUBASA",
+            "FPago": "Tag",
+            "Man": 1,
+        },
+    ]
+
+    df_output = process_events(pd.DataFrame(rows))
+
+    assert len(df_output) == 1
+    assert df_output.loc[0, "Tránsito"] == 440075
+    assert df_output.loc[0, "Estado"] == "Manual (No Leido)"
+    assert df_output.loc[0, "Forma de Pago"] == "Tag"
+    assert df_output.loc[0, "Categoria"] == "1"
+
+
+def test_process_events_marks_open_violation():
+    rows = [
+        {
+            "Hora": "00:01:46",
+            "Via": "52",
+            "Transito": 676499,
+            "Descripcion": "Violacion por Via Abierta",
+            "Sentido": "Desc.",
+            "Observacion": "",
+        }
+    ]
+
+    df_output = process_events(pd.DataFrame(rows))
+    assert bool(df_output.loc[0, "Violacion Via Abierta"]) is True
+
+
+def test_process_events_merges_unknown_tag_burst_into_next_confirmed_transit():
+    rows = [
+        {
+            "Hora": "2026-03-30 02:02:39",
+            "Via": "53",
+            "Transito": None,
+            "Descripcion": "TAG No Habilitado",
+            "Observacion": "Numero: SI9091439617 Tag desconocido",
+        },
+        {
+            "Hora": "2026-03-30 02:02:40",
+            "Via": "53",
+            "Transito": None,
+            "Descripcion": "TAG No Habilitado",
+            "Observacion": "Numero: SI9099669350 Tag desconocido",
+        },
+        {
+            "Hora": "2026-03-30 02:02:47",
+            "Via": "53",
+            "Transito": None,
+            "Descripcion": "Transito con Patente Ingresada Manualmente",
+            "Sentido": "Desc.",
+            "Observacion": "Patente: LTQ093 Tag: SI9093486701",
+        },
+        {
+            "Hora": "2026-03-30 02:02:47",
+            "Via": "53",
+            "Transito": 245429,
+            "Descripcion": "Transito con TAG Pospago Categoria 1",
+            "Sentido": "Desc.",
+            "Observacion": "Patente: LTQ093 Numero: SI9093486701 AUBASA",
+            "FPago": "Tag",
+            "Man": 1,
+        },
+    ]
+
+    df_output = process_events(pd.DataFrame(rows))
+    assert len(df_output) == 1
+    assert df_output.loc[0, "Tránsito"] == 245429
+    assert "TAG No Habilitado" in df_output.loc[0, "Descripción Original"]

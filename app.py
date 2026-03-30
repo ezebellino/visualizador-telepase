@@ -9,8 +9,15 @@ from app_logic import (
     DISPLAY_COLUMNS,
     STATUS_READ,
     apply_filters,
+    build_category_distribution,
+    build_direction_summary,
     build_effectiveness_trend,
+    build_network_access_urls,
+    build_open_violation_summary,
     build_operational_insights,
+    build_payment_insights,
+    build_payment_distribution,
+    build_payment_summary,
     build_status_by_via,
     build_status_distribution,
     build_summary,
@@ -52,6 +59,13 @@ st.markdown(
             border: 1px solid rgba(8, 78, 156, 0.12);
             margin-bottom: 1rem;
         }
+        .network-card {
+            padding: 0.85rem 1rem;
+            border-radius: 14px;
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.20);
+            margin-bottom: 1rem;
+        }
     </style>
     """,
     unsafe_allow_html=True,
@@ -75,41 +89,67 @@ def render_empty_state():
     st.markdown(
         """
         <div class="hero-card">
-            <div class="hero-title">📡 Sistema de Monitoreo Telepase</div>
+            <div class="hero-title">Sistema de Monitoreo Telepase</div>
             <div class="hero-subtitle">
-                Análisis operativo de lecturas TAG, fallos manuales y tránsito por vía.
+                Analisis operativo de lecturas TAG, movimientos por sentido, pagos y transito por via.
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
     st.info(
-        "Carga un archivo CSV, XLS o XLSX para ver métricas, filtros, gráficos y exportaciones."
+        "Carga un archivo CSV, XLS o XLSX para ver metricas, filtros, graficos y exportaciones."
     )
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Formatos soportados", "CSV / XLS / XLSX")
-    col2.metric("Resolución", "Por tránsito")
-    col3.metric("Exportación", "CSV y Excel")
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Formatos", "CSV / XLS / XLSX")
+    col2.metric("Resolucion", "Por transito")
+    col3.metric("Metricas", "Sentido / Pago / Via")
+    col4.metric("Exportacion", "CSV y Excel")
 
-    with st.expander("Qué hace esta app"):
-        st.write("""
+    with st.expander("Que hace esta app"):
+        st.write(
+            """
             - Detecta la cabecera real del reporte aunque el archivo tenga ruido arriba.
-            - Agrupa eventos por tránsito para evitar duplicados funcionales.
-            - Clasifica lecturas correctas, fallos manuales y otros estados.
-            - Permite filtrar por vía, sentido, patente y rango horario.
-            """)
+            - Agrupa eventos por transito para evitar duplicados funcionales.
+            - Vincula ingresos manuales con el transito correcto cuando el sistema informa el numero en la fila siguiente.
+            - Clasifica lecturas correctas, manuales, violaciones y otras anomalias.
+            - Permite filtrar por via, sentido, patente y rango horario.
+            """
+        )
 
 
 def render_processing_error(error: Exception):
     logger.exception("Fallo al procesar el archivo: %s", error)
     st.error(f"No se pudo procesar el archivo: {error}")
     with st.expander("Sugerencias para corregir el archivo"):
-        st.write("""
-            - Verifica que el archivo tenga columnas equivalentes a Hora, Vía, Tránsito y Descripción.
-            - Si es un CSV, confirma que no esté dañado o vacío.
+        st.write(
+            """
+            - Verifica que el archivo tenga columnas equivalentes a Hora, Via, Transito y Descripcion.
+            - Si es un CSV, confirma que no este dañado o vacio.
             - Si es un Excel exportado manualmente, intenta volver a exportarlo desde origen.
-            """)
+            """
+        )
+
+
+def render_network_access():
+    urls = build_network_access_urls()
+    st.markdown(
+        f"""
+        <div class="network-card">
+            <strong>Acceso local:</strong> {urls["local_url"]}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    if urls["network_urls"]:
+        st.caption("Tambien puedes abrir esta app desde otra PC de la misma red:")
+        for network_url in urls["network_urls"]:
+            st.code(network_url)
+    else:
+        st.caption(
+            "No se detectaron IPs de red locales. Si necesitas acceso remoto, revisa la red o firewall de la PC."
+        )
 
 
 def render_header(df_filtrado: pd.DataFrame, filters: dict):
@@ -117,9 +157,9 @@ def render_header(df_filtrado: pd.DataFrame, filters: dict):
     st.markdown(
         """
         <div class="hero-card">
-            <div class="hero-title">📡 Sistema de Monitoreo Telepase</div>
+            <div class="hero-title">Sistema de Monitoreo Telepase</div>
             <div class="hero-subtitle">
-                Seguimiento de lecturas, fallos y estados operativos sobre el archivo cargado.
+                Seguimiento de lecturas, pagos, categorias y estados operativos sobre el archivo cargado.
             </div>
         </div>
         """,
@@ -130,29 +170,30 @@ def render_header(df_filtrado: pd.DataFrame, filters: dict):
         <div class="section-note">
             <strong>Contexto actual:</strong>
             {len(df_filtrado)} registros visibles |
-            Vías: {", ".join(map(str, filters["vias"]))} |
+            Vias: {", ".join(map(str, filters["vias"]))} |
             Sentidos: {", ".join(map(str, filters["sentidos"]))} |
-            Cobertura: {insights["via_count"]} vías activas |
-            Diagnóstico: {insights["effectiveness_note"]}
+            Cobertura: {insights["via_count"]} vias activas |
+            Diagnostico: {insights["effectiveness_note"]}
         </div>
         """,
         unsafe_allow_html=True,
     )
+    render_network_access()
 
 
 def render_sidebar(df_processed: pd.DataFrame, uploaded_file_name: str):
     st.sidebar.header("Filtros")
     st.sidebar.caption(f"Archivo cargado: {uploaded_file_name}")
 
-    vias_disponibles = df_processed["Vía"].dropna().unique().tolist()
-    sentidos_disponibles = df_processed["Sentido"].dropna().unique().tolist()
+    vias_disponibles = df_processed["Vía"].dropna().astype(str).unique().tolist()
+    sentidos_disponibles = df_processed["Sentido"].dropna().astype(str).unique().tolist()
     min_hora, max_hora = resolve_time_bounds(df_processed)
 
     vias_seleccionadas = st.sidebar.multiselect(
-        "Selecciona la vía a monitorear",
+        "Selecciona las vias",
         options=vias_disponibles,
         default=vias_disponibles,
-        help="Si deseleccionas todas, no se mostrarán datos.",
+        help="Si deseleccionas todas, no se mostraran datos.",
     )
     sentido_seleccionado = st.sidebar.multiselect(
         "Selecciona el sentido",
@@ -166,13 +207,11 @@ def render_sidebar(df_processed: pd.DataFrame, uploaded_file_name: str):
     end_time = col_time2.time_input("Hora fin", max_hora)
 
     grafico_tipo = st.sidebar.selectbox(
-        "Tipo de gráfico de lectura",
-        ["Barra por estado", "Pie de lectura", "Línea de efectividad"],
+        "Tipo de grafico de lectura",
+        ["Barra por estado", "Pie de lectura", "Linea de efectividad"],
         index=0,
-        help="Elige cómo visualizar la lectura de antena.",
     )
-
-    page_size = st.sidebar.selectbox("Tamaño de página", [25, 50, 100, 200], index=1)
+    page_size = st.sidebar.selectbox("Tamano de pagina", [25, 50, 100, 200], index=1)
 
     return {
         "vias": vias_seleccionadas,
@@ -208,9 +247,7 @@ def build_chart(df_filtrado: pd.DataFrame, grafico_tipo: str):
             .mark_arc(innerRadius=55)
             .encode(
                 theta=alt.Theta(field="Cantidad", type="quantitative"),
-                color=alt.Color(
-                    field="Estado", type="nominal", legend=alt.Legend(title="Estado")
-                ),
+                color=alt.Color(field="Estado", type="nominal"),
                 tooltip=["Estado", "Cantidad"],
             )
             .properties(height=360)
@@ -223,13 +260,84 @@ def build_chart(df_filtrado: pd.DataFrame, grafico_tipo: str):
         .encode(
             x=alt.X("Hora_agrupada:T", title="Hora"),
             y=alt.Y("Efectividad:Q", title="Efectividad (%)"),
-            tooltip=[
-                "Hora_agrupada:T",
-                alt.Tooltip("Efectividad:Q", format=".1f"),
-            ],
+            tooltip=["Hora_agrupada:T", alt.Tooltip("Efectividad:Q", format=".1f")],
         )
         .properties(height=360)
     )
+
+
+def render_direction_panel(df_filtrado: pd.DataFrame):
+    summary = build_direction_summary(df_filtrado)
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Ascendente", summary["asc"])
+    c2.metric("Descendente", summary["desc"])
+    c3.metric("Pendientes de regreso", summary["saldo_pendiente"])
+
+
+def render_payment_and_category(df_filtrado: pd.DataFrame):
+    payment_summary = build_payment_summary(df_filtrado)
+    payment_insights = build_payment_insights(df_filtrado)
+    payment_distribution = build_payment_distribution(df_filtrado)
+    category_distribution = build_category_distribution(df_filtrado)
+
+    st.markdown("#### Medios de pago y categoria")
+    p1, p2, p3 = st.columns(3)
+    p1.metric("Pasan con TAG", payment_summary["tag"], f"{payment_insights['tag_share']:.1f}%")
+    p2.metric(
+        "Pagan efectivo",
+        payment_summary["efectivo"],
+        f"{payment_insights['efectivo_share']:.1f}%",
+    )
+    p3.metric(
+        "Sin dato de pago",
+        payment_summary["sin_dato"],
+        f"{payment_insights['unknown_share']:.1f}% del total",
+    )
+    st.caption(
+        "Los porcentajes de TAG vs Efectivo se calculan solo sobre pagos conocidos. "
+        "'Sin dato' queda aparte porque suele indicar anomalias, violaciones o transitos sin cierre comercial completo."
+    )
+
+    left, right = st.columns(2)
+    with left:
+        payment_chart = (
+            alt.Chart(payment_distribution)
+            .mark_bar(cornerRadiusTopLeft=8, cornerRadiusTopRight=8)
+            .encode(
+                x=alt.X("Forma de Pago:N", title="Forma de pago"),
+                y=alt.Y("Cantidad:Q", title="Cantidad"),
+                color=alt.Color("Forma de Pago:N", legend=None),
+                tooltip=["Forma de Pago", "Cantidad"],
+            )
+            .properties(height=280)
+        )
+        st.altair_chart(payment_chart, use_container_width=True)
+
+    with right:
+        if category_distribution.empty:
+            st.info("No hay categorias disponibles en el subconjunto actual.")
+        else:
+            category_chart = (
+                alt.Chart(category_distribution)
+                .mark_bar(cornerRadiusTopLeft=8, cornerRadiusTopRight=8)
+                .encode(
+                    x=alt.X("Categoria:N", title="Categoria"),
+                    y=alt.Y("Cantidad:Q", title="Cantidad"),
+                    tooltip=["Categoria", "Cantidad"],
+                )
+                .properties(height=280)
+            )
+            st.altair_chart(category_chart, use_container_width=True)
+
+
+def render_violation_panel(df_filtrado: pd.DataFrame):
+    total_violations, violations_by_via = build_open_violation_summary(df_filtrado)
+    st.markdown("#### Violaciones por via abierta")
+    st.metric("Total violaciones via abierta", total_violations)
+    if violations_by_via.empty:
+        st.success("No hay violaciones por via abierta en el subconjunto actual.")
+    else:
+        st.dataframe(violations_by_via, use_container_width=True, height=220)
 
 
 def render_summary(df_filtrado: pd.DataFrame, grafico_tipo: str):
@@ -237,11 +345,11 @@ def render_summary(df_filtrado: pd.DataFrame, grafico_tipo: str):
     insights = build_operational_insights(df_filtrado)
     st.markdown("### Resumen operativo")
     st.caption(
-        "Vista ejecutiva para validar volumen, calidad de lectura y distribución de estados."
+        "Vista ejecutiva para validar volumen, calidad de lectura, pagos, categorias y distribucion de estados."
     )
 
     c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Total vehículos", summary["total"])
+    c1.metric("Total vehiculos", summary["total"])
     c2.metric("Lecturas OK", summary["reads"])
     c3.metric("Manual", summary["manuals"])
     c4.metric("Otros", summary["others"])
@@ -250,7 +358,7 @@ def render_summary(df_filtrado: pd.DataFrame, grafico_tipo: str):
     st.markdown(
         f"""
         <div class="section-note">
-            <strong>Lectura rápida:</strong>
+            <strong>Lectura rapida:</strong>
             {insights["effectiveness_note"]} |
             Estado predominante: {insights["predominant_state"]}
         </div>
@@ -258,45 +366,55 @@ def render_summary(df_filtrado: pd.DataFrame, grafico_tipo: str):
         unsafe_allow_html=True,
     )
 
+    if "show_direction_summary" not in st.session_state:
+        st.session_state["show_direction_summary"] = False
+
+    if st.button("Mostrar/Ocultar conteo ASC y DESC", use_container_width=True):
+        st.session_state["show_direction_summary"] = not st.session_state[
+            "show_direction_summary"
+        ]
+
+    if st.session_state["show_direction_summary"]:
+        render_direction_panel(df_filtrado)
+
     st.altair_chart(build_chart(df_filtrado, grafico_tipo), use_container_width=True)
 
     estado_via, pivot = build_status_by_via(df_filtrado)
     col_left, col_right = st.columns([1, 1.2])
 
     with col_left:
-        st.markdown("#### Estado por vía")
-        st.dataframe(pivot.astype(int), width="stretch", height=260)
+        st.markdown("#### Estado por via")
+        st.dataframe(pivot.astype(int), use_container_width=True, height=260)
 
     with col_right:
-        st.markdown("#### Heatmap por vía y estado")
+        st.markdown("#### Heatmap por via y estado")
         heatmap = (
             alt.Chart(estado_via)
             .mark_rect()
             .encode(
                 x=alt.X("Estado:N", title="Estado"),
-                y=alt.Y("Vía:N", sort="-x", title="Vía"),
-                color=alt.Color(
-                    "Cantidad:Q",
-                    scale=alt.Scale(scheme="yellowgreenblue"),
-                    title="Cantidad",
-                ),
+                y=alt.Y("Vía:N", sort="-x", title="Via"),
+                color=alt.Color("Cantidad:Q", title="Cantidad"),
                 tooltip=["Vía", "Estado", "Cantidad"],
             )
             .properties(height=320)
         )
         st.altair_chart(heatmap, use_container_width=True)
 
+    render_payment_and_category(df_filtrado)
+    render_violation_panel(df_filtrado)
+
 
 def render_detail(df_filtrado: pd.DataFrame, page_size: int):
-    st.markdown("### Exportación y detalle")
+    st.markdown("### Exportacion y detalle")
     st.caption(
-        "Descarga el subconjunto filtrado o revisa el detalle paginado para auditoría manual."
+        "Descarga el subconjunto filtrado o revisa el detalle paginado para auditoria manual."
     )
 
     export_col1, export_col2 = st.columns(2)
     csv_data = df_filtrado[DISPLAY_COLUMNS].to_csv(index=False).encode("utf-8")
     export_col1.download_button(
-        "⬇️ Exportar CSV",
+        "Exportar CSV",
         data=csv_data,
         file_name="telepase_filtrado.csv",
         mime="text/csv",
@@ -310,7 +428,7 @@ def render_detail(df_filtrado: pd.DataFrame, page_size: int):
                 writer, index=False, sheet_name="Telepase"
             )
         export_col2.download_button(
-            "⬇️ Exportar Excel",
+            "Exportar Excel",
             data=buffer.getvalue(),
             file_name="telepase_filtrado.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -320,12 +438,13 @@ def render_detail(df_filtrado: pd.DataFrame, page_size: int):
         st.warning(f"No se pudo generar Excel: {error}")
 
     num_pages = max((len(df_filtrado) - 1) // page_size + 1, 1)
-    page = st.number_input("Página", min_value=1, max_value=num_pages, value=1, step=1)
+    page = st.number_input("Pagina", min_value=1, max_value=num_pages, value=1, step=1)
     start = (page - 1) * page_size
     end = start + page_size
-
     st.dataframe(
-        df_filtrado[DISPLAY_COLUMNS].iloc[start:end], width="stretch", height=420
+        df_filtrado[DISPLAY_COLUMNS].iloc[start:end],
+        use_container_width=True,
+        height=420,
     )
 
 
@@ -334,6 +453,7 @@ def main():
 
     if uploaded_file is None:
         render_empty_state()
+        render_network_access()
         return
 
     try:
@@ -344,7 +464,7 @@ def main():
 
     if df_processed.empty:
         logger.warning("Archivo sin registros utilizables: %s", uploaded_file.name)
-        st.warning("El archivo se pudo leer, pero no generó registros utilizables.")
+        st.warning("El archivo se pudo leer, pero no genero registros utilizables.")
         return
 
     filters = render_sidebar(df_processed, uploaded_file.name)
@@ -359,7 +479,7 @@ def main():
             filters["end_time"],
         )
     except ValueError as error:
-        logger.warning("Filtro inválido aplicado: %s", error)
+        logger.warning("Filtro invalido aplicado: %s", error)
         st.warning(str(error))
         return
 
@@ -382,7 +502,7 @@ def main():
         )
         st.info(
             "No hay lecturas TAG correctas en el subconjunto actual. "
-            "Revisa filtros o exporta el detalle para inspección."
+            "Revisa filtros o exporta el detalle para inspeccion."
         )
 
     tab_summary, tab_detail = st.tabs(["Resumen", "Detalle"])
