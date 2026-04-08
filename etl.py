@@ -75,7 +75,7 @@ def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
 
     column_map = {}
     for column in normalized.columns:
-        lowered = column.lower().strip()
+        lowered = str(column).strip().lower()
         column_map[column] = COLUMN_ALIASES.get(lowered, column)
 
     return normalized.rename(columns=column_map)
