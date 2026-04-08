@@ -104,7 +104,12 @@ def validate_columns(df: pd.DataFrame) -> None:
 def find_header_and_data(df_raw: pd.DataFrame) -> pd.DataFrame | None:
     header_idx = None
     for index, row in df_raw.head(50).iterrows():
-        row_text = " ".join(row.astype(str).str.lower().values)
+        normalized_cells = [
+            str(value).strip().lower()
+            for value in row.tolist()
+            if pd.notna(value) and str(value).strip()
+        ]
+        row_text = " ".join(normalized_cells)
         if "hora" in row_text and (
             "via" in row_text
             or "vía" in row_text
