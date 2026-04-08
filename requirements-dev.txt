@@ -1,6 +1,0 @@
-pytest
-black
-ruff
-isort
-mypy
-pydocstyle

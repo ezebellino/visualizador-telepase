@@ -218,6 +218,265 @@ def is_open_violation(description) -> bool:
     )
 
 
+def normalize_exempt_group(group_value) -> str:
+    text = "" if pd.isna(group_value) else str(group_value).strip()
+    upper_text = text.upper()
+    if not upper_text:
+        return "Sin agrupar"
+    if "AUTORIZA SUPERVISOR" in upper_text:
+        return "Autoriza Supervisor"
+    if "DISCAP" in upper_text:
+        return "Discapacitado"
+    if "POLIC" in upper_text:
+        return "Policia"
+    if "AMBUL" in upper_text:
+        return "Ambulancia"
+    if "EX COMBAT" in upper_text or "VETERANO" in upper_text:
+        return "Ex Combatientes"
+    if "BOMBER" in upper_text:
+        return "Bomberos"
+    if "PERSONAL" in upper_text:
+        return "Personal propio"
+    if "VIALIDAD" in upper_text:
+        return "Vialidad Provincial"
+    return text
+
+
+def build_group_classification(group_name: str, normalized: str, upper_text: str) -> dict[str, str]:
+    patente_match = re.search(r"\b([A-Z]{2}\d{3}[A-Z]{2}|[A-Z]{3}\d{3})\b", upper_text)
+    document_match = re.search(r"\b\d{6,12}\b", upper_text)
+    has_real_patente = bool(patente_match and patente_match.group(1) != "SINPATE")
+
+    if group_name in {"Policia", "Ambulancia", "Bomberos", "Vialidad Provincial"}:
+        subtype = "Patente identificada" if has_real_patente else "Sin patente"
+    elif group_name == "Discapacitado":
+        subtype = "DNI identificado" if document_match else "Sin DNI"
+    elif group_name == "Ex Combatientes":
+        subtype = (
+            "Veterano Malvinas"
+            if "MALVINAS" in upper_text
+            else "Veterano"
+            if "VETERANO" in upper_text
+            else "Sin detalle"
+        )
+    elif group_name == "Personal propio":
+        if "SUTPA" in upper_text or "SINDIC" in upper_text:
+            subtype = "SUTPA"
+        elif "AUBASA" in upper_text:
+            subtype = "AUBASA"
+        else:
+            subtype = "Otro"
+    else:
+        subtype = group_name
+
+    return {
+        "tipo": group_name,
+        "subtipo": subtype,
+        "detalle": normalized,
+        "patente": patente_match.group(1) if patente_match else "N/A",
+        "documento": document_match.group(0) if document_match else "N/A",
+        "tag_ref": "N/A",
+    }
+
+
+def infer_group_from_supervisor_text(supervisor_text: str) -> str | None:
+    police_markers = ["POLIC", "COMISAR", "DEFENSA CIVIL"]
+    personal_markers = ["AUBASA", "AUMAR", "SUTPA", "SINDIC"]
+
+    if any(marker in supervisor_text for marker in police_markers):
+        return "Policia"
+    if any(marker in supervisor_text for marker in personal_markers):
+        return "Personal propio"
+    return None
+
+
+def classify_ungrouped_observation(normalized: str, upper_text: str) -> dict[str, str]:
+    patente_match = re.search(r"\b([A-Z]{2}\d{3}[A-Z]{2}|[A-Z]{3}\d{3})\b", upper_text)
+    document_match = re.search(r"\b\d{6,12}\b", upper_text)
+    tag_match = re.search(r"\b(SI\d+|[A-Z]{2,}\d{5,})\b", upper_text)
+
+    inferred_group = infer_group_from_supervisor_text(upper_text)
+    if inferred_group:
+        return build_group_classification(inferred_group, normalized, upper_text)
+
+    if "DISCAP" in upper_text:
+        return build_group_classification("Discapacitado", normalized, upper_text)
+    if "AMBUL" in upper_text:
+        return build_group_classification("Ambulancia", normalized, upper_text)
+    if "BOMBER" in upper_text:
+        return build_group_classification("Bomberos", normalized, upper_text)
+    if "EX COMBAT" in upper_text or "VETERANO" in upper_text:
+        return build_group_classification("Ex Combatientes", normalized, upper_text)
+
+    if "VIOLACIÓN POR VÍA ABIERTA" in upper_text or "VIOLACION POR VIA ABIERTA" in upper_text:
+        return {
+            "tipo": "Violacion operativa",
+            "subtipo": "Via abierta",
+            "detalle": normalized,
+            "patente": patente_match.group(1) if patente_match else "N/A",
+            "documento": document_match.group(0) if document_match else "N/A",
+            "tag_ref": tag_match.group(1) if tag_match else "N/A",
+        }
+    if "VIOLACIÓN POR VÍA CERRADA" in upper_text or "VIOLACION POR VIA CERRADA" in upper_text:
+        return {
+            "tipo": "Violacion operativa",
+            "subtipo": "Via cerrada",
+            "detalle": normalized,
+            "patente": patente_match.group(1) if patente_match else "N/A",
+            "documento": document_match.group(0) if document_match else "N/A",
+            "tag_ref": tag_match.group(1) if tag_match else "N/A",
+        }
+
+    anomaly_markers = [
+        "HUELLA",
+        "TRAILER",
+        "VIOLACION EN TREN",
+        "SALIDA ANÓMALA",
+        "SALIDA ANOMALA",
+        "AVANCE Y RETROCESO",
+        "OPERACIÓN ABORTADA",
+        "OPERACION ABORTADA",
+        "RETABULACIÓN",
+        "RETABULACION",
+    ]
+    if any(marker in upper_text for marker in anomaly_markers):
+        return {
+            "tipo": "Anomalia operativa",
+            "subtipo": "Huella / maniobra",
+            "detalle": normalized,
+            "patente": patente_match.group(1) if patente_match else "N/A",
+            "documento": document_match.group(0) if document_match else "N/A",
+            "tag_ref": tag_match.group(1) if tag_match else "N/A",
+        }
+
+    if "TRÁNSITO EFECTIVO" in upper_text or "TRANSITO EFECTIVO" in upper_text:
+        return {
+            "tipo": "Cobro efectivo",
+            "subtipo": "Sin novedad asociada",
+            "detalle": normalized,
+            "patente": patente_match.group(1) if patente_match else "N/A",
+            "documento": document_match.group(0) if document_match else "N/A",
+            "tag_ref": tag_match.group(1) if tag_match else "N/A",
+        }
+
+    if "TRÁNSITO PATENTE EXENTO" in upper_text or "TRANSITO PATENTE EXENTO" in upper_text:
+        return {
+            "tipo": "Exento identificado",
+            "subtipo": "Patente exenta",
+            "detalle": normalized,
+            "patente": patente_match.group(1) if patente_match else "N/A",
+            "documento": document_match.group(0) if document_match else "N/A",
+            "tag_ref": tag_match.group(1) if tag_match else "N/A",
+        }
+
+    if "TRÁNSITO EXENTO" in upper_text or "TRANSITO EXENTO" in upper_text:
+        return {
+            "tipo": "Exento identificado",
+            "subtipo": "Exento sin agrupacion base",
+            "detalle": normalized,
+            "patente": patente_match.group(1) if patente_match else "N/A",
+            "documento": document_match.group(0) if document_match else "N/A",
+            "tag_ref": tag_match.group(1) if tag_match else "N/A",
+        }
+
+    return {
+        "tipo": "Sin agrupar",
+        "subtipo": "Sin agrupar",
+        "detalle": normalized,
+        "patente": patente_match.group(1) if patente_match else "N/A",
+        "documento": document_match.group(0) if document_match else "N/A",
+        "tag_ref": tag_match.group(1) if tag_match else "N/A",
+    }
+
+
+def classify_exempt_observation(observation, group_value=None, description=None) -> dict[str, str]:
+    text = "" if pd.isna(observation) else str(observation).strip()
+    description_text = "" if pd.isna(description) else str(description).strip()
+    group_name = normalize_exempt_group(group_value)
+    combined_text = " | ".join(part for part in [text, description_text] if part and part != "N/A")
+
+    if not text and not description_text:
+        return {
+            "tipo": group_name,
+            "subtipo": "Sin clasificar",
+            "detalle": "Observacion vacia",
+            "patente": "N/A",
+            "documento": "N/A",
+            "tag_ref": "N/A",
+        }
+
+    normalized = re.sub(r"\s+", " ", combined_text or text or description_text).strip()
+    upper_text = normalized.upper()
+    supervisor_text = upper_text.split("OBS.SUPERVISOR:")[-1].strip()
+    supervisor_core_text = supervisor_text.split("|")[0].strip()
+
+    if group_name == "Sin agrupar":
+        return classify_ungrouped_observation(normalized, upper_text)
+
+    if group_name != "Autoriza Supervisor":
+        return build_group_classification(group_name, normalized, upper_text)
+
+    debit_match = re.search(
+        r"^(?P<via>\d+)\s+(?P<patente>[A-Z0-9]{5,8})\b", supervisor_core_text
+    )
+    if debit_match:
+        patente = debit_match.group("patente").upper()
+        return {
+            "tipo": group_name,
+            "subtipo": "Pago con Debito",
+            "detalle": f"Pago con tarjeta de debito | Patente {patente}",
+            "patente": patente,
+            "documento": "N/A",
+            "tag_ref": "N/A",
+        }
+
+    supervisor_match = re.search(
+        r"(?P<patente>[A-Z0-9]{5,8})\s+SI\d+\s+(?P<tag>[A-Z0-9]+)\s+H(?:\s+(TAG|EXENTO))?\b",
+        supervisor_core_text,
+    )
+    if supervisor_match:
+        patente = supervisor_match.group("patente").upper()
+        tag_ref = supervisor_match.group("tag")
+        return {
+            "tipo": group_name,
+            "subtipo": "TAG habilitado por Supervisor",
+            "detalle": (
+                "Telepase habilitado por supervisor | "
+                f"Patente {patente} | Dispositivo {tag_ref}"
+            ),
+            "patente": patente,
+            "documento": "N/A",
+            "tag_ref": tag_ref,
+        }
+
+    if "REGRESA A CARGAR COMBUSTIBLE" in supervisor_text:
+        ticket_match = re.search(r"TICKET\s*N[°º]?\s*(?P<ticket>\d+)", supervisor_text)
+        return {
+            "tipo": group_name,
+            "subtipo": "Retorno justificado",
+            "detalle": "Regreso autorizado para cargar combustible",
+            "patente": "N/A",
+            "documento": ticket_match.group("ticket") if ticket_match else "N/A",
+            "tag_ref": "N/A",
+        }
+
+    inferred_group = infer_group_from_supervisor_text(supervisor_text)
+    if inferred_group:
+        return build_group_classification(inferred_group, normalized, upper_text)
+
+    patente_match = re.search(r"\b([A-Z]{2}\d{3}[A-Z]{2}|[A-Z]{3}\d{3})\b", upper_text)
+    tag_match = re.search(r"\b(SI\d+|[A-Z]{2,}\d{5,})\b", upper_text)
+    document_match = re.search(r"\b\d{6,12}\b", upper_text)
+    return {
+        "tipo": group_name,
+        "subtipo": "Supervisor - Otro",
+        "detalle": normalized,
+        "patente": patente_match.group(1) if patente_match else "N/A",
+        "documento": document_match.group(0) if document_match else "N/A",
+        "tag_ref": tag_match.group(1) if tag_match else "N/A",
+    }
+
+
 def assign_transito_reference(df: pd.DataFrame) -> pd.Series:
     transito_num = pd.to_numeric(df["Transito"], errors="coerce")
     via_series = df["Via"].where(df["Via"].notna(), "").astype(str).str.strip()
@@ -291,6 +550,11 @@ def process_events(df: pd.DataFrame) -> pd.DataFrame:
         processed["FPago"] = pd.Series([processed["FPago"]] * len(processed))
     processed["FPago"] = processed["FPago"].fillna("")
 
+    processed["Agrupacion"] = processed.get("Agrupación", processed.get("Agrupacion", "Sin agrupar"))
+    if not isinstance(processed["Agrupacion"], pd.Series):
+        processed["Agrupacion"] = pd.Series([processed["Agrupacion"]] * len(processed))
+    processed["Agrupacion"] = processed["Agrupacion"].fillna("Sin agrupar")
+
     processed["Man"] = processed.get("Man", "N/A")
     if not isinstance(processed["Man"], pd.Series):
         processed["Man"] = pd.Series([processed["Man"]] * len(processed))
@@ -359,6 +623,19 @@ def process_events(df: pd.DataFrame) -> pd.DataFrame:
             "Descripcion",
             lambda s: " | ".join(dict.fromkeys(s.dropna().astype(str).tolist())),
         ),
+        Observacion_Original=(
+            "Observacion",
+            lambda s: " | ".join(
+                dict.fromkeys(
+                    value for value in s.dropna().astype(str).tolist() if value.strip()
+                )
+            )
+            or "N/A",
+        ),
+        Agrupacion_Original=(
+            "Agrupacion",
+            lambda s: normalize_exempt_group(s.dropna().astype(str).iloc[-1]) if not s.dropna().empty else "Sin agrupar",
+        ),
         any_manual=("es_manual", "any"),
         any_tag=("es_tag", "any"),
         any_violacion_abierta=("Violacion Via Abierta", "any"),
@@ -378,6 +655,20 @@ def process_events(df: pd.DataFrame) -> pd.DataFrame:
         return "Otro (Violacion/Exento)"
 
     grouped["Estado"] = grouped.apply(classify, axis=1)
+    exempt_fields = grouped.apply(
+        lambda row: classify_exempt_observation(
+            row["Observacion_Original"],
+            row["Agrupacion_Original"],
+            row["Descripcion_Original"],
+        ),
+        axis=1,
+    )
+    grouped["Exento Tipo"] = exempt_fields.apply(lambda item: item["tipo"])
+    grouped["Exento Subtipo"] = exempt_fields.apply(lambda item: item["subtipo"])
+    grouped["Exento Detalle"] = exempt_fields.apply(lambda item: item["detalle"])
+    grouped["Exento Patente"] = exempt_fields.apply(lambda item: item["patente"])
+    grouped["Exento Documento"] = exempt_fields.apply(lambda item: item["documento"])
+    grouped["Exento TAG"] = exempt_fields.apply(lambda item: item["tag_ref"])
 
     output = grouped[
         [
@@ -404,4 +695,12 @@ def process_events(df: pd.DataFrame) -> pd.DataFrame:
         }
     )
 
+    output["Observacion Original"] = grouped["Observacion_Original"].values
+    output["Agrupacion Original"] = grouped["Agrupacion_Original"].values
+    output["Exento Tipo"] = grouped["Exento Tipo"].values
+    output["Exento Subtipo"] = grouped["Exento Subtipo"].values
+    output["Exento Detalle"] = grouped["Exento Detalle"].values
+    output["Exento Patente"] = grouped["Exento Patente"].values
+    output["Exento Documento"] = grouped["Exento Documento"].values
+    output["Exento TAG"] = grouped["Exento TAG"].values
     return output

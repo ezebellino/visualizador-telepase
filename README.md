@@ -1,98 +1,71 @@
 # Visualizador Telepase
 
-![Demo de la aplicacion](demo.png)
+Aplicacion web para analizar reportes de eventos Telepase con una arquitectura `FastAPI + React`.
 
-Aplicacion en Streamlit para analizar reportes de eventos Telepase, detectar lecturas correctas de TAG, identificar intervenciones manuales y filtrar la operacion por via, sentido, horario y patente.
+## Stack
+- Backend: `FastAPI`
+- Frontend: `React + Vite`
+- Procesamiento: `pandas`, `numpy`, `openpyxl`, `xlrd`
+- Deploy recomendado: `Railway`
 
-## Que hace hoy
-- Carga archivos `csv`, `xls` y `xlsx`.
-- Detecta la fila real de cabecera en reportes ruidosos.
-- Normaliza columnas clave como `Hora`, `Via`, `Transito` y `Descripcion`.
-- Extrae `Patente` y `TAG` desde observaciones mediante expresiones regulares.
-- Agrupa eventos por numero de transito para evitar duplicados funcionales.
-- Clasifica cada transito como lectura correcta, manual o otro.
-- Permite filtrar resultados y exportarlos a CSV y Excel.
+## Estructura
+- `backend/app/main.py`: API y servidor del frontend compilado
+- `backend/app/services.py`: armado de respuesta del dashboard
+- `etl.py`: procesamiento y normalizacion de reportes
+- `app_logic.py`: metricas y transformaciones para dashboard
+- `frontend/`: interfaz React
+- `Dockerfile`: imagen de despliegue para Railway
 
-## Estructura actual
-- `app.py`: interfaz Streamlit.
-- `etl.py`: fuente de verdad del procesamiento.
-- `src/etl.py`: wrapper de compatibilidad.
-- `tests/test_etl.py`: pruebas automatizadas del ETL.
-- `PLAN_MEJORA.md`: roadmap tecnico.
+## Desarrollo local
 
-## Ejecutar en desarrollo
-Con Python del sistema:
+Backend:
 
 ```bash
 python -m pip install -r requirements.txt
-python -m streamlit run app.py
+python -m uvicorn backend.app.main:app --reload --app-dir .
 ```
 
-Con el Python portable incluido:
+Frontend:
 
 ```bash
-Sistema_Python\python.exe -m pip install -r requirements.txt
-Sistema_Python\python.exe -m streamlit run app.py
+cd frontend
+npm install
+npm run dev
 ```
 
-Abrir en `http://localhost:8501`.
-
-## Ejecutar tests
-Con Python del sistema:
+## Build frontend
 
 ```bash
-python -m pip install -r requirements.txt
-python -m pip install -r requirements-dev.txt
-python -m pytest -q
+cd frontend
+npm install
+npm run build
 ```
 
-Con el Python portable:
+## Tests
 
 ```bash
-Sistema_Python\python.exe -m pytest -q
+python -m pytest tests -q
 ```
 
-`pytest` ya esta configurado para ejecutar solo la carpeta `tests/`.
+## Deploy en Railway
 
-## Ejecutar con Docker
+Railway usa el `Dockerfile` del repo.
+
+Flujo sugerido:
+
 ```bash
-docker build -t visualizador-telepase .
-docker run --rm -p 8501:8501 visualizador-telepase
+railway login
+railway init
+railway up
 ```
 
-## Scripts disponibles
-- `INICIAR.bat`: inicio rapido que delega el arranque a un launcher oculto.
-- `run_telepase.bat`: inicio operativo estable en modo headless.
-- `ACTUALIZAR_SISTEMA.bat`: actualiza codigo y dependencias de forma explicita.
-- `VERIFICAR_SISTEMA.bat`: verifica dependencias base y respuesta local de la app.
-- `CREAR_ACCESO_DIRECTO.bat`: crea un acceso directo de Windows con `antena.ico`.
-- `scripts/launch_app_hidden.vbs`: inicia la app sin dejar la consola abierta y abre el navegador.
-- `scripts/build_portable_package.ps1`: arma una carpeta portable y un `.zip` para distribucion.
+En produccion:
+- `GET /health`: healthcheck
+- `POST /api/v1/dashboard/analyze`: API principal
+- `/`: frontend React servido por FastAPI
 
-## Flujo operativo recomendado
-- Para usar la aplicacion en forma normal: `INICIAR.bat`.
-- Para ejecutar la app como servicio local o arranque automatico: `run_telepase.bat`.
-- Para actualizar el sistema de manera manual y controlada: `ACTUALIZAR_SISTEMA.bat`.
-- Para comprobar estado y recuperacion basica: `VERIFICAR_SISTEMA.bat`.
-- Para evitar la consola visible en Windows: usar el acceso directo generado o `INICIAR.bat`.
-
-## Icono del lanzador en Windows
-Un archivo `.bat` no puede llevar un icono embebido propio en el Explorador de Windows. Para resolverlo de forma profesional, el proyecto incluye `CREAR_ACCESO_DIRECTO.bat`, que genera un acceso directo `.lnk` en el escritorio usando `antena.ico` y apuntando al launcher oculto de la aplicacion.
-
-## Calidad automatizada
-El proyecto incluye:
-
-- `pytest` para pruebas.
-- `ruff` para chequeos estaticos.
-- `black` para formato.
-- GitHub Actions en `.github/workflows/python-app.yml`.
-
-## Datos y privacidad
-El repositorio no deberia almacenar reportes operativos reales. Para pruebas manuales, usar archivos anonimizados fuera del repo o generar muestras sinteticas.
-
-## Estado del proyecto
-El proyecto esta en proceso de profesionalizacion incremental. La hoja de ruta vigente esta documentada en `PLAN_MEJORA.md`.
-
-## Documentacion para usuarios
-- `MANUAL_USUARIO.md`: guia de instalacion, ejecucion, uso diario y arranque automatico en Windows.
-- `RELEASE_NOTES_v1.0.0.md`: resumen de la primera version estable.
+## Notas
+- El frontend usa el mismo origen en produccion, por lo que no necesita `VITE_API_BASE_URL` en Railway para el caso simple de un solo servicio.
+- No guardar reportes operativos reales dentro del repositorio.
+- El repositorio fue depurado para despliegue: la superficie legacy de `Streamlit`, scripts de Windows y artefactos de empaquetado local ya no forman parte del codigo versionado principal.
+- `Sistema_Python` puede mantenerse como ayuda local fuera del flujo de deploy, pero no es parte del release en Railway.

@@ -22,6 +22,13 @@ STATUS_MANUAL = "Manual (No Leido)"
 STATUS_OTHER = "Otro (Violacion/Exento)"
 
 
+def find_column_by_keyword(df: pd.DataFrame, keyword: str) -> str:
+    for column in df.columns:
+        if keyword.lower() in str(column).lower():
+            return column
+    raise KeyError(f"No se encontro una columna para '{keyword}'.")
+
+
 def prepare_processed_data(df: pd.DataFrame) -> pd.DataFrame:
     prepared = df.copy()
     prepared["Hora_dt"] = pd.to_datetime(prepared["Hora"], errors="coerce", format="mixed")
@@ -109,12 +116,27 @@ def build_summary(df: pd.DataFrame) -> dict[str, float | int]:
     manuals = counts.get(STATUS_MANUAL, 0)
     others = counts.get(STATUS_OTHER, 0)
     effectiveness = (reads / total * 100) if total else 0.0
+    non_cash = df[df["Forma de Pago"].fillna("Sin dato") != "Efectivo"]
+    antenna_base = len(non_cash)
+    antenna_counts = non_cash["Estado"].value_counts()
+    antenna_reads = int(antenna_counts.get(STATUS_READ, 0))
+    antenna_manuals = int(antenna_counts.get(STATUS_MANUAL, 0))
+    antenna_others = int(antenna_counts.get(STATUS_OTHER, 0))
+    antenna_read_rate = (antenna_reads / antenna_base * 100) if antenna_base else 0.0
+    antenna_manual_rate = (antenna_manuals / antenna_base * 100) if antenna_base else 0.0
     return {
         "total": total,
         "reads": reads,
         "manuals": manuals,
         "others": others,
         "effectiveness": effectiveness,
+        "cash_excluded": int(total - antenna_base),
+        "antenna_base": int(antenna_base),
+        "antenna_reads": antenna_reads,
+        "antenna_manuals": antenna_manuals,
+        "antenna_others": antenna_others,
+        "antenna_read_rate": antenna_read_rate,
+        "antenna_manual_rate": antenna_manual_rate,
     }
 
 
@@ -123,9 +145,9 @@ def build_operational_insights(df: pd.DataFrame) -> dict[str, str]:
     predominant_state = df["Estado"].value_counts().idxmax() if not df.empty else "N/A"
     via_count = int(df["Vía"].nunique()) if "Vía" in df.columns else 0
 
-    if summary["effectiveness"] >= 85:
+    if summary["antenna_read_rate"] >= 85:
         effectiveness_note = "Nivel de lectura alto"
-    elif summary["effectiveness"] >= 60:
+    elif summary["antenna_read_rate"] >= 60:
         effectiveness_note = "Nivel de lectura intermedio"
     else:
         effectiveness_note = "Nivel de lectura bajo"
@@ -227,6 +249,98 @@ def build_open_violation_summary(df: pd.DataFrame) -> tuple[int, pd.DataFrame]:
     by_via = violations.groupby("Vía").size().reset_index(name="Cantidad")
     by_via = by_via.sort_values("Cantidad", ascending=False)
     return int(len(violations)), by_via
+
+
+def build_exempt_analysis(df: pd.DataFrame) -> dict[str, object]:
+    hora_column = find_column_by_keyword(df, "Hora")
+    via_column = next(
+        column
+        for column in df.columns
+        if "v" in str(column).lower() and ("a" in str(column).lower() or "Ã" in str(column))
+    )
+    patente_column = find_column_by_keyword(df, "Patente")
+    tipo_column = find_column_by_keyword(df, "Exento Tipo")
+    subtipo_column = find_column_by_keyword(df, "Exento Subtipo")
+    detalle_column = find_column_by_keyword(df, "Exento Detalle")
+    documento_column = find_column_by_keyword(df, "Exento Documento")
+    tag_column = find_column_by_keyword(df, "Exento TAG")
+    observation_column = find_column_by_keyword(df, "Observacion Original")
+    grouping_column = find_column_by_keyword(df, "Agrupacion Original")
+
+    exentos = df[df["Estado"] == STATUS_OTHER].copy()
+    if exentos.empty:
+        return {
+            "total": 0,
+            "supervisor_total": 0,
+            "classified": 0,
+            "distribution": pd.DataFrame(columns=["Tipo", "Cantidad"]),
+            "supervisor_distribution": pd.DataFrame(columns=["Tipo", "Cantidad"]),
+            "records": pd.DataFrame(
+                columns=[
+                    "Hora",
+                    "Via",
+                    "Patente",
+                    "Tipo",
+                    "Subtipo",
+                    "Detalle",
+                    "Documento",
+                    "TAG Ref",
+                    "Observacion",
+                ]
+            ),
+        }
+
+    distribution = exentos[tipo_column].fillna("Sin agrupar").astype(str).value_counts().reset_index()
+    distribution.columns = ["Tipo", "Cantidad"]
+
+    supervisor_records = exentos[exentos[tipo_column] == "Autoriza Supervisor"]
+    supervisor_distribution = (
+        supervisor_records[subtipo_column]
+        .fillna("Supervisor - Otro")
+        .astype(str)
+        .value_counts()
+        .reset_index()
+    )
+    if supervisor_distribution.empty:
+        supervisor_distribution = pd.DataFrame(columns=["Tipo", "Cantidad"])
+    else:
+        supervisor_distribution.columns = ["Tipo", "Cantidad"]
+
+    records = exentos[
+        [
+            hora_column,
+            via_column,
+            patente_column,
+            subtipo_column,
+            tipo_column,
+            detalle_column,
+            documento_column,
+            tag_column,
+            observation_column,
+        ]
+    ].rename(
+        columns={
+            hora_column: "Hora",
+            via_column: "Via",
+            patente_column: "Patente",
+            tipo_column: "Tipo",
+            subtipo_column: "Subtipo",
+            detalle_column: "Detalle",
+            documento_column: "Documento",
+            tag_column: "TAG Ref",
+            observation_column: "Observacion",
+        }
+    )
+    records.insert(3, "Agrupacion", records["Tipo"])
+
+    return {
+        "total": int(len(exentos)),
+        "supervisor_total": int(len(supervisor_records)),
+        "classified": int((supervisor_records[subtipo_column] != "Supervisor - Otro").sum()),
+        "distribution": distribution,
+        "supervisor_distribution": supervisor_distribution,
+        "records": records,
+    }
 
 
 def build_network_access_urls(port: int = 8501) -> dict[str, list[str] | str]:
