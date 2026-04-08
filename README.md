@@ -1,12 +1,12 @@
 # Visualizador Telepase
 
-Aplicacion web para analizar reportes de eventos Telepase con una arquitectura `FastAPI + React`.
+Aplicacion web para analizar reportes de eventos Telepase con arquitectura `FastAPI + React`.
 
 ## Stack
 - Backend: `FastAPI`
 - Frontend: `React + Vite`
 - Procesamiento: `pandas`, `numpy`, `openpyxl`, `xlrd`
-- Deploy recomendado: `Railway`
+- Deploy: `Railway`
 
 ## Estructura
 - `backend/app/main.py`: API y servidor del frontend compilado
@@ -22,7 +22,13 @@ Backend:
 
 ```bash
 python -m pip install -r requirements.txt
-python -m uvicorn backend.app.main:app --reload --app-dir .
+python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload --app-dir .
+```
+
+Si usas el Python portable del proyecto:
+
+```bash
+Sistema_Python\python.exe -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload --app-dir .
 ```
 
 Frontend:
@@ -33,25 +39,21 @@ npm install
 npm run dev
 ```
 
-## Build frontend
+## Build local de produccion
 
 ```bash
 cd frontend
 npm install
 npm run build
-```
-
-## Tests
-
-```bash
-python -m pytest tests -q
+cd ..
+python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --app-dir .
 ```
 
 ## Deploy en Railway
 
-Railway usa el `Dockerfile` del repo.
+Railway usa el `Dockerfile` del repo y publica un unico servicio que sirve API + frontend compilado.
 
-Flujo sugerido:
+Flujo base:
 
 ```bash
 railway login
@@ -59,13 +61,14 @@ railway init
 railway up
 ```
 
-En produccion:
+Proyecto desplegado:
+- URL publica: `https://visualizador-telepase-production.up.railway.app`
 - `GET /health`: healthcheck
 - `POST /api/v1/dashboard/analyze`: API principal
 - `/`: frontend React servido por FastAPI
 
 ## Notas
-- El frontend usa el mismo origen en produccion, por lo que no necesita `VITE_API_BASE_URL` en Railway para el caso simple de un solo servicio.
+- El frontend usa el mismo origen en produccion, por lo que no necesita `VITE_API_BASE_URL` en Railway para este despliegue de un solo servicio.
 - No guardar reportes operativos reales dentro del repositorio.
-- El repositorio fue depurado para despliegue: la superficie legacy de `Streamlit`, scripts de Windows y artefactos de empaquetado local ya no forman parte del codigo versionado principal.
-- `Sistema_Python` puede mantenerse como ayuda local fuera del flujo de deploy, pero no es parte del release en Railway.
+- El repositorio fue depurado para despliegue: la superficie legacy de `Streamlit`, scripts de Windows y artefactos locales ya no forman parte del codigo versionado principal.
+- `Sistema_Python` puede mantenerse como ayuda local, pero no forma parte del release en Railway.
