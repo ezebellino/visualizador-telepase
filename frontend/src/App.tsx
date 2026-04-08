@@ -85,7 +85,7 @@ export default function App() {
   const [filters, setFilters] = useState<FiltersState>(INITIAL_FILTERS);
   const [sections, setSections] = useState<SectionVisibility>(INITIAL_SECTIONS);
   const [exemptFilters, setExemptFilters] = useState<ExemptFiltersState>(INITIAL_EXEMPT_FILTERS);
-  const [activeView, setActiveView] = useState<"overview" | "exempts" | "deep-dive">(
+  const [activeView, setActiveView] = useState<"overview" | "exempts" | "deep-dive" | "audit">(
     "overview",
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -184,6 +184,29 @@ export default function App() {
   const antennaManuals = Number(antennaManualMetric?.value ?? 0);
   const antennaReadRate = antennaBase ? (antennaReads / antennaBase) * 100 : 0;
   const antennaManualRate = antennaBase ? (antennaManuals / antennaBase) * 100 : 0;
+  const visibleRecordCount = visibleRecords?.length ?? 0;
+  const cashRecordsCount = dashboard?.records.filter((record) => record.forma_pago === "Efectivo").length ?? 0;
+  const manualRecordCount =
+    dashboard?.records.filter((record) => record.estado.includes("Manual")).length ?? 0;
+  const topViaStatuses = (dashboard?.status_by_via ?? []).slice(0, 8);
+  const auditSummaryRows = dashboard
+    ? [
+        { indicador: "Archivo procesado", valor: dashboard.file_name },
+        { indicador: "Generado", valor: formatAuditDate(dashboard.generated_at) },
+        { indicador: "Transitos visibles", valor: String(dashboard.total_records) },
+        { indicador: "Registros auditables en tabla", valor: String(visibleRecordCount) },
+        { indicador: "Base real antena", valor: String(antennaBase) },
+        { indicador: "Lecturas correctas", valor: String(antennaReads) },
+        { indicador: "Ingresadas manual", valor: String(antennaManuals) },
+        { indicador: "Cobro efectivo", valor: String(cashRecordsCount) },
+        { indicador: "Manuales detectadas", valor: String(manualRecordCount) },
+        { indicador: "Efectividad real antena", valor: `${roundMetricValue(antennaReadRate)}%` },
+        { indicador: "EXENTOS / Otros", valor: String(filteredExemptRecords.length) },
+        { indicador: "Supervisor clasificados", valor: String(filteredSupervisorClassified) },
+        { indicador: "Vias activas", valor: dashboard.filters.vias.join(", ") || "N/A" },
+        { indicador: "Sentidos activos", valor: dashboard.filters.sentidos.join(", ") || "N/A" },
+      ]
+    : [];
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -371,6 +394,13 @@ export default function App() {
             type="button"
           >
             Detalles minuciosos
+          </button>
+          <button
+            className={`view-button ${activeView === "audit" ? "view-button-active" : ""}`}
+            onClick={() => setActiveView("audit")}
+            type="button"
+          >
+            Auditoria operativa
           </button>
         </nav>
 
@@ -747,7 +777,7 @@ export default function App() {
                 </div>
               </section>
             </>
-          ) : (
+          ) : activeView === "deep-dive" ? (
             <DetailedExemptsView
               detailedRecords={filteredDetailedRecords}
               detailedDistribution={filteredDetailedDistribution}
@@ -757,6 +787,14 @@ export default function App() {
               supervisorDistribution={filteredSupervisorDistribution}
               supervisorResolved={filteredSupervisorClassified}
               supervisorTotal={filteredSupervisorTotal}
+            />
+          ) : (
+            <AuditWorkspace
+              auditSummaryRows={auditSummaryRows}
+              dashboard={dashboard}
+              exemptRecords={filteredExemptRecords}
+              topViaStatuses={topViaStatuses}
+              visibleRecords={visibleRecords ?? []}
             />
           )
         ) : (
@@ -1018,6 +1056,185 @@ function DetailedExemptsView({
   );
 }
 
+function AuditWorkspace({
+  auditSummaryRows,
+  dashboard,
+  exemptRecords,
+  topViaStatuses,
+  visibleRecords,
+}: {
+  auditSummaryRows: Array<{ indicador: string; valor: string }>;
+  dashboard: DashboardResponse;
+  exemptRecords: DashboardResponse["exempt_records"];
+  topViaStatuses: DashboardResponse["status_by_via"];
+  visibleRecords: DashboardResponse["records"];
+}) {
+  const exportedAt = new Date().toISOString();
+
+  function exportAuditSummary() {
+    downloadTextFile(
+      `auditoria-operativa-${safeFileStem(dashboard.file_name)}.json`,
+      JSON.stringify(
+        {
+          exported_at: exportedAt,
+          dashboard_generated_at: dashboard.generated_at,
+          source_file: dashboard.file_name,
+          summary: auditSummaryRows,
+          top_via_statuses: topViaStatuses,
+        },
+        null,
+        2,
+      ),
+      "application/json;charset=utf-8",
+    );
+  }
+
+  function exportVisibleRecords() {
+    downloadTextFile(
+      `auditoria-transitos-${safeFileStem(dashboard.file_name)}.csv`,
+      toCsv(
+        visibleRecords.map((record) => ({
+          Hora: record.hora,
+          Via: record.via,
+          Transito: String(record.transito),
+          Patente: record.patente,
+          TAG: record.tag,
+          Estado: record.estado,
+          FormaPago: record.forma_pago,
+          Categoria: record.categoria,
+          Sentido: record.sentido,
+          ViolacionViaAbierta: record.violacion_via_abierta ? "Si" : "No",
+          DescripcionOriginal: record.descripcion_original,
+        })),
+      ),
+      "text/csv;charset=utf-8",
+    );
+  }
+
+  function exportExemptRecords() {
+    downloadTextFile(
+      `auditoria-exentos-${safeFileStem(dashboard.file_name)}.csv`,
+      toCsv(
+        exemptRecords.map((record) => ({
+          Hora: record.hora,
+          Via: record.via,
+          Agrupacion: record.agrupacion,
+          Tipo: record.tipo,
+          Subtipo: record.subtipo,
+          Patente: record.patente,
+          Documento: record.documento,
+          TagRef: record.tag_ref,
+          Detalle: record.detalle,
+          Observacion: record.observacion,
+        })),
+      ),
+      "text/csv;charset=utf-8",
+    );
+  }
+
+  return (
+    <>
+      <section className="audit-toolbar">
+        <div>
+          <p className="eyebrow">Auditoria</p>
+          <h3>Vista operativa exportable</h3>
+          <p className="audit-copy">
+            Resume el lote procesado, deja trazabilidad del corte analizado y permite exportar
+            transitos, EXENTOS y resumen ejecutivo para compartir o archivar.
+          </p>
+        </div>
+        <div className="audit-actions">
+          <button className="audit-button" onClick={exportAuditSummary} type="button">
+            Exportar resumen JSON
+          </button>
+          <button className="audit-button" onClick={exportVisibleRecords} type="button">
+            Exportar transitos CSV
+          </button>
+          <button className="audit-button" onClick={exportExemptRecords} type="button">
+            Exportar EXENTOS CSV
+          </button>
+        </div>
+      </section>
+
+      <section className="metrics-strip">
+        {auditSummaryRows.slice(0, 5).map((item) => (
+          <article className="metric-block" key={item.indicador}>
+            <span>{item.indicador}</span>
+            <strong>{item.valor}</strong>
+            <small>Control de auditoria</small>
+          </article>
+        ))}
+      </section>
+
+      <section className="charts-grid">
+        <article className="list-panel">
+          <div className="panel-heading">
+            <p className="eyebrow">Bitacora</p>
+            <h3>Resumen del lote auditado</h3>
+          </div>
+          <div className="audit-summary-grid">
+            {auditSummaryRows.map((item) => (
+              <div className="audit-summary-item" key={item.indicador}>
+                <span>{item.indicador}</span>
+                <strong>{item.valor}</strong>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="list-panel">
+          <div className="panel-heading">
+            <p className="eyebrow">Foco por via</p>
+            <h3>Estados con mayor volumen</h3>
+          </div>
+          <ul className="highlights-list">
+            {topViaStatuses.map((item, index) => (
+              <li key={`${item.via}-${item.estado}-${index}`}>
+                Via {item.via}: {item.estado} ({item.cantidad})
+              </li>
+            ))}
+          </ul>
+        </article>
+      </section>
+
+      <section className="table-panel">
+        <div className="panel-heading">
+          <p className="eyebrow">Traza exportable</p>
+          <h3>Muestra de transitos auditados</h3>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Hora</th>
+                <th>Via</th>
+                <th>Transito</th>
+                <th>Patente</th>
+                <th>Estado</th>
+                <th>Pago</th>
+                <th>Categoria</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleRecords.slice(0, 18).map((record) => (
+                <tr key={`audit-${record.transito}-${record.hora}`}>
+                  <td>{record.hora}</td>
+                  <td>{record.via}</td>
+                  <td>{record.transito}</td>
+                  <td>{record.patente}</td>
+                  <td>{record.estado}</td>
+                  <td>{record.forma_pago}</td>
+                  <td>{record.categoria}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </>
+  );
+}
+
 function toggleValue(current: string[], value: string) {
   return current.includes(value)
     ? current.filter((item) => item !== value)
@@ -1074,4 +1291,40 @@ function countByLabel(values: string[]) {
   return [...counts.entries()]
     .map(([label, value]) => ({ label, value }))
     .sort((left, right) => right.value - left.value || left.label.localeCompare(right.label));
+}
+
+function formatAuditDate(value: string) {
+  return value ? new Date(value).toLocaleString("es-AR") : "N/A";
+}
+
+function safeFileStem(fileName: string) {
+  return fileName.replace(/\.[^/.]+$/, "").replace(/[^a-z0-9_-]+/gi, "-").toLowerCase();
+}
+
+function toCsv(rows: Array<Record<string, string>>) {
+  if (!rows.length) {
+    return "";
+  }
+
+  const headers = Object.keys(rows[0]);
+  const csvRows = [
+    headers.join(","),
+    ...rows.map((row) =>
+      headers
+        .map((header) => `"${String(row[header] ?? "").replaceAll('"', '""')}"`)
+        .join(","),
+    ),
+  ];
+
+  return csvRows.join("\n");
+}
+
+function downloadTextFile(fileName: string, content: string, contentType: string) {
+  const blob = new Blob([content], { type: contentType });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }

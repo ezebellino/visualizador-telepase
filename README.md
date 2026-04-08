@@ -11,10 +11,19 @@ Aplicacion web para analizar reportes de eventos Telepase con arquitectura `Fast
 ## Estructura
 - `backend/app/main.py`: API y servidor del frontend compilado
 - `backend/app/services.py`: armado de respuesta del dashboard
+- `backend/app/observability.py`: logging estructurado y eventos operativos
 - `etl.py`: procesamiento y normalizacion de reportes
 - `app_logic.py`: metricas y transformaciones para dashboard
 - `frontend/`: interfaz React
 - `Dockerfile`: imagen de despliegue para Railway
+- `OPERACION_Y_AUDITORIA.md`: documentacion operativa y de observabilidad
+
+## Vistas principales
+
+- `Portada operativa`
+- `Anexo EXENTOS`
+- `Detalles minuciosos`
+- `Auditoria operativa` con export de `CSV` y `JSON`
 
 ## Desarrollo local
 
@@ -62,13 +71,14 @@ railway up
 ```
 
 Proyecto desplegado:
-- URL publica: `https://visualizador-telepase-production.up.railway.app`
+- URL publica: `https://visualizador-telepase.up.railway.app/`
 - `GET /health`: healthcheck
 - `POST /api/v1/dashboard/analyze`: API principal
 - `/`: frontend React servido por FastAPI
 
 ## Notas
 - El frontend usa el mismo origen en produccion, por lo que no necesita `VITE_API_BASE_URL` en Railway para este despliegue de un solo servicio.
+- Railway emite logs de request y de negocio para cada corrida del dashboard.
 - No guardar reportes operativos reales dentro del repositorio.
 - El repositorio fue depurado para despliegue: la superficie legacy de `Streamlit`, scripts de Windows y artefactos locales ya no forman parte del codigo versionado principal.
 - `Sistema_Python` puede mantenerse como ayuda local, pero no forma parte del release en Railway.
