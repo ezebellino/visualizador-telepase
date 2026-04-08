@@ -7,7 +7,6 @@ import {
   useEffect,
   useState,
 } from "react";
-import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
 import {
   Bar,
@@ -1325,9 +1324,10 @@ function countByLabel(values: string[]) {
     .sort((left, right) => right.value - left.value || left.label.localeCompare(right.label));
 }
 
-function runProductTour(
+async function runProductTour(
   setActiveView: Dispatch<SetStateAction<"overview" | "exempts" | "deep-dive" | "audit">>,
 ) {
+  const { driver } = await import("driver.js");
   const tour = driver({
     showProgress: true,
     allowClose: true,
