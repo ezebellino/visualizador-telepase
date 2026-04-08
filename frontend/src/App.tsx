@@ -7,6 +7,8 @@ import {
   useEffect,
   useState,
 } from "react";
+import { driver } from "driver.js";
+import "driver.js/dist/driver.css";
 import {
   Bar,
   BarChart,
@@ -79,6 +81,8 @@ const INITIAL_EXEMPT_FILTERS: ExemptFiltersState = {
   subtipos: [],
 };
 
+const TOUR_STORAGE_KEY = "telepase-tour-seen-v1";
+
 export default function App() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
@@ -107,6 +111,23 @@ export default function App() {
       agrupaciones: uniqueValues(dashboard.exempt_records.map((record) => record.agrupacion)),
       subtipos: uniqueValues(dashboard.exempt_records.map((record) => record.subtipo)),
     });
+  }, [dashboard]);
+
+  useEffect(() => {
+    if (!dashboard || typeof window === "undefined") {
+      return;
+    }
+
+    if (window.localStorage.getItem(TOUR_STORAGE_KEY)) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      runProductTour(setActiveView);
+      window.localStorage.setItem(TOUR_STORAGE_KEY, "true");
+    }, 500);
+
+    return () => window.clearTimeout(timeoutId);
   }, [dashboard]);
 
   const visibleRecords = dashboard?.records.filter((record) => {
@@ -260,9 +281,16 @@ export default function App() {
     }
   }
 
+  function handleStartTour() {
+    runProductTour(setActiveView);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(TOUR_STORAGE_KEY, "true");
+    }
+  }
+
   return (
     <div className="app-shell">
-      <aside className="sidebar">
+      <aside className="sidebar" id="tour-sidebar">
         <div>
           <p className="eyebrow">Telepase Ops</p>
           <h1>Control Center</h1>
@@ -271,7 +299,7 @@ export default function App() {
           </p>
         </div>
 
-        <form className="control-form" onSubmit={handleSubmit}>
+        <form className="control-form" id="tour-upload" onSubmit={handleSubmit}>
           <label className="field">
             <span>Reporte fuente</span>
             <input
@@ -346,6 +374,10 @@ export default function App() {
           <button className="submit-button" disabled={isSubmitting} type="submit">
             {isSubmitting ? "Procesando lote..." : "Construir dashboard"}
           </button>
+          <button className="secondary-button" onClick={handleStartTour} type="button">
+            Ver guía rápida
+          </button>
+          <p className="tour-hint">Puedes cerrar la guía con la tecla `Esc` o con el botón `X`.</p>
         </form>
 
         {errorMessage ? <p className="error-message">{errorMessage}</p> : null}
@@ -373,7 +405,7 @@ export default function App() {
           </div>
         </section>
 
-        <nav className="view-switcher">
+        <nav className="view-switcher" id="tour-views">
           <button
             className={`view-button ${activeView === "overview" ? "view-button-active" : ""}`}
             onClick={() => setActiveView("overview")}
@@ -407,7 +439,7 @@ export default function App() {
         {dashboard ? (
           activeView === "overview" ? (
             <>
-              <section className="metrics-strip">
+              <section className="metrics-strip" id="tour-metrics">
                 {dashboard.metrics.map((metric) => (
                   <article className="metric-block" key={metric.label}>
                     <span>{metric.label}</span>
@@ -602,7 +634,7 @@ export default function App() {
             </>
           ) : activeView === "exempts" ? (
             <>
-              <section className="list-panel annex-filters">
+              <section className="list-panel annex-filters" id="tour-exempts">
                 <div className="panel-heading">
                   <p className="eyebrow">Filtros del anexo</p>
                   <h3>Tipo de subconjuntos y agrupaciones</h3>
@@ -1134,7 +1166,7 @@ function AuditWorkspace({
 
   return (
     <>
-      <section className="audit-toolbar">
+      <section className="audit-toolbar" id="tour-audit">
         <div>
           <p className="eyebrow">Auditoria</p>
           <h3>Vista operativa exportable</h3>
@@ -1291,6 +1323,103 @@ function countByLabel(values: string[]) {
   return [...counts.entries()]
     .map(([label, value]) => ({ label, value }))
     .sort((left, right) => right.value - left.value || left.label.localeCompare(right.label));
+}
+
+function runProductTour(
+  setActiveView: Dispatch<SetStateAction<"overview" | "exempts" | "deep-dive" | "audit">>,
+) {
+  const tour = driver({
+    showProgress: true,
+    allowClose: true,
+    overlayClickBehavior: "close",
+    nextBtnText: "Siguiente",
+    prevBtnText: "Anterior",
+    doneBtnText: "Listo",
+    steps: [
+      {
+        element: "#tour-sidebar",
+        popover: {
+          title: "Centro de control",
+          description:
+            "Aqui cargas el archivo operativo, ajustas filtros y ejecutas la construccion del dashboard.",
+          side: "right",
+          align: "start",
+        },
+      },
+      {
+        element: "#tour-upload",
+        popover: {
+          title: "Entrada del lote",
+          description:
+            "Sube archivos CSV, XLS o XLSX. Luego puedes filtrar por via, sentido, patente y franja horaria.",
+          side: "right",
+          align: "start",
+        },
+      },
+      {
+        element: "#tour-views",
+        popover: {
+          title: "Navegacion por vistas",
+          description:
+            "La app separa portada operativa, anexo EXENTOS, detalles minuciosos y auditoria operativa.",
+          side: "bottom",
+          align: "start",
+          onNextClick: () => {
+            setActiveView("overview");
+            window.setTimeout(() => tour.moveNext(), 120);
+          },
+        },
+      },
+      {
+        element: "#tour-metrics",
+        popover: {
+          title: "KPIs ejecutivos",
+          description:
+            "Estas tarjetas concentran transitos visibles, base real de antena, lecturas correctas y manuales.",
+          side: "bottom",
+          align: "start",
+          onNextClick: () => {
+            setActiveView("exempts");
+            window.setTimeout(() => tour.moveNext(), 160);
+          },
+        },
+      },
+      {
+        element: "#tour-exempts",
+        popover: {
+          title: "Analitica de EXENTOS",
+          description:
+            "Aqui puedes segmentar agrupaciones y subtipos para leer el anexo con mayor precision.",
+          side: "top",
+          align: "start",
+          onNextClick: () => {
+            setActiveView("audit");
+            window.setTimeout(() => tour.moveNext(), 160);
+          },
+        },
+      },
+      {
+        element: "#tour-audit",
+        popover: {
+          title: "Auditoria exportable",
+          description:
+            "Esta vista resume el lote y permite exportar JSON o CSV para compartir, archivar o revisar operativamente.",
+          side: "bottom",
+          align: "start",
+        },
+      },
+    ],
+    onDestroyed: () => {
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(TOUR_STORAGE_KEY, "true");
+      }
+    },
+  });
+
+  setActiveView("overview");
+  window.setTimeout(() => {
+    tour.drive();
+  }, 150);
 }
 
 function formatAuditDate(value: string) {

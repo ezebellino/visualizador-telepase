@@ -148,6 +148,23 @@ input {
   cursor: progress;
 }
 
+.secondary-button {
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 16px;
+  padding: 0.85rem 1rem;
+  background: rgba(15, 23, 42, 0.52);
+  color: #e2e8f0;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tour-hint {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
 .muted-text,
 .error-message {
   font-size: 0.86rem;

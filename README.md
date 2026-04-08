@@ -25,6 +25,23 @@ Aplicacion web para analizar reportes de eventos Telepase con arquitectura `Fast
 - `Detalles minuciosos`
 - `Auditoria operativa` con export de `CSV` y `JSON`
 
+## Guia de uso integrada
+
+La interfaz incluye una guia rapida con `Driver.js` para mostrar:
+
+- carga del archivo fuente
+- filtros operativos
+- navegacion entre vistas
+- lectura del anexo EXENTOS
+- uso de la auditoria operativa y sus exports
+
+La guia puede abrirse manualmente desde `Ver guía rápida` y tambien se muestra una vez cuando ya existe un dashboard cargado.
+
+Para cerrarla:
+
+- boton `X`
+- tecla `Esc`
+
 ## Desarrollo local
 
 Backend:
@@ -79,6 +96,7 @@ Proyecto desplegado:
 ## Notas
 - El frontend usa el mismo origen en produccion, por lo que no necesita `VITE_API_BASE_URL` en Railway para este despliegue de un solo servicio.
 - Railway emite logs de request y de negocio para cada corrida del dashboard.
+- La guia de onboarding usa `Driver.js`.
 - No guardar reportes operativos reales dentro del repositorio.
 - El repositorio fue depurado para despliegue: la superficie legacy de `Streamlit`, scripts de Windows y artefactos locales ya no forman parte del codigo versionado principal.
 - `Sistema_Python` puede mantenerse como ayuda local, pero no forma parte del release en Railway.
