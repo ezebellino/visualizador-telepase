@@ -341,6 +341,7 @@ input {
   gap: 0.45rem;
   padding: 1.35rem;
   background: rgba(255, 255, 255, 0.76);
+  min-width: 0;
 }
 
 .metric-block span,
@@ -350,6 +351,9 @@ input {
 
 .metric-block strong {
   font-size: clamp(1.45rem, 2vw, 2rem);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .insights-grid,
