@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import time as time_module
 from datetime import datetime, time
 
 import pandas as pd
@@ -20,6 +21,7 @@ from app_logic import (
 )
 from etl import load_data, process_events
 
+from .observability import configure_logging, log_event
 from .schemas import (
     DashboardRecord,
     DashboardResponse,
@@ -31,6 +33,7 @@ from .schemas import (
     ViaStatusItem,
 )
 
+logger = configure_logging()
 
 DISPLAY_COLUMN_MAP = {
     0: "hora",
@@ -56,10 +59,11 @@ def _parse_time(raw_value: str | None, fallback: time) -> time:
 async def _load_processed_dataframe(uploaded_file: UploadFile) -> pd.DataFrame:
     file_name = uploaded_file.filename or "telepase-report.csv"
     content = await uploaded_file.read()
+    file_size_bytes = len(content)
     buffer = io.BytesIO(content)
     buffer.name = file_name
     cleaned = load_data(buffer)
-    return prepare_processed_data(process_events(cleaned))
+    return prepare_processed_data(process_events(cleaned)), file_size_bytes
 
 
 def _serialize_distribution(
@@ -144,6 +148,7 @@ def _serialize_exempt_records(frame: pd.DataFrame) -> list[ExemptRecord]:
 
 
 async def build_dashboard_response(
+    request_id: str,
     uploaded_file: UploadFile,
     vias: list[str] | None = None,
     sentidos: list[str] | None = None,
@@ -151,7 +156,26 @@ async def build_dashboard_response(
     start_time: str | None = None,
     end_time: str | None = None,
 ) -> DashboardResponse:
-    processed = await _load_processed_dataframe(uploaded_file)
+    started_at = time_module.perf_counter()
+    file_name = uploaded_file.filename or "telepase-report.csv"
+    try:
+        processed, file_size_bytes = await _load_processed_dataframe(uploaded_file)
+    except Exception as exc:
+        log_event(
+            logger,
+            "dashboard_build_failed",
+            request_id=request_id,
+            file_name=file_name,
+            selected_vias=vias or [],
+            selected_sentidos=sentidos or [],
+            patente=patente or "",
+            start_time=start_time or "",
+            end_time=end_time or "",
+            error_type=type(exc).__name__,
+            error=str(exc),
+        )
+        raise
+
     via_column = processed.columns[1]
     available_vias = sorted(processed[via_column].dropna().astype(str).unique().tolist())
     available_sentidos = (
@@ -207,24 +231,47 @@ async def build_dashboard_response(
         "La API reutiliza el ETL actual para sostener consistencia funcional durante la migracion.",
     ]
 
+    duration_ms = round((time_module.perf_counter() - started_at) * 1000, 2)
+    status_distribution = build_status_distribution(filtered)
+    payment_distribution = build_payment_distribution(filtered)
+    category_distribution = build_category_distribution(filtered)
+    effectiveness_trend = build_effectiveness_trend(filtered)
+
+    log_event(
+        logger,
+        "dashboard_built",
+        request_id=request_id,
+        file_name=file_name,
+        file_size_bytes=file_size_bytes,
+        total_transits=int(summary["total"]),
+        antenna_base=int(summary["antenna_base"]),
+        antenna_reads=int(summary["antenna_reads"]),
+        antenna_manuals=int(summary["antenna_manuals"]),
+        antenna_read_rate=round(float(summary["antenna_read_rate"]), 2),
+        exempt_total=int(exempt_analysis["total"]),
+        exempt_classified=int(exempt_analysis["classified"]),
+        predominant_state=insights["predominant_state"],
+        active_vias=int(insights["via_count"]),
+        selected_vias=vias or available_vias,
+        selected_sentidos=sentidos or available_sentidos,
+        patente=patente or "",
+        start_time=start_time or "",
+        end_time=end_time or "",
+        duration_ms=duration_ms,
+    )
+
     return DashboardResponse(
         generated_at=datetime.utcnow().isoformat(),
-        file_name=uploaded_file.filename or "telepase-report.csv",
+        file_name=file_name,
         total_records=len(filtered),
         filters=FilterOptions(vias=available_vias, sentidos=available_sentidos),
         headline="Centro de monitoreo Telepase",
         highlights=highlights,
         metrics=metrics,
-        status_distribution=_serialize_distribution(
-            build_status_distribution(filtered), "Estado", "Cantidad"
-        ),
-        payment_distribution=_serialize_distribution(
-            build_payment_distribution(filtered), "Forma de Pago", "Cantidad"
-        ),
-        category_distribution=_serialize_distribution(
-            build_category_distribution(filtered), "Categoria", "Cantidad"
-        ),
-        effectiveness_trend=_serialize_trend(build_effectiveness_trend(filtered)),
+        status_distribution=_serialize_distribution(status_distribution, "Estado", "Cantidad"),
+        payment_distribution=_serialize_distribution(payment_distribution, "Forma de Pago", "Cantidad"),
+        category_distribution=_serialize_distribution(category_distribution, "Categoria", "Cantidad"),
+        effectiveness_trend=_serialize_trend(effectiveness_trend),
         status_by_via=_serialize_status_by_via(status_by_via),
         records=_serialize_records(filtered),
         exempt_total=int(exempt_analysis["total"]),
